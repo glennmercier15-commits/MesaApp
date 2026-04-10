@@ -1,0 +1,5 @@
+{
+  "name": "MindBridge UI System",
+  "description": "A trauma-informed mobile UI system for Home, Sessions, Messages, Journey, and Safety.",
+  "requestFramePermissions": ["geolocation"]
+}

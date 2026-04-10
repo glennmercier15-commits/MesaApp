@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user profile information and roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "outreach", "admin"] },
+        "location": { "type": "string", "description": "Assigned county or region" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "SafetyPlan": {
+      "title": "Safety Plan",
+      "description": "Personal safety plan for crisis management.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Owner UID" },
+        "triggers": { "type": "array", "items": { "type": "string" } },
+        "copingStrategies": { "type": "array", "items": { "type": "string" } },
+        "emergencyContacts": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "phone": { "type": "string" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid"]
+    },
+    "DailyCheckIn": {
+      "title": "Daily Check-in",
+      "description": "Mood and craving tracking.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "mood": { "type": "number", "description": "1-5 scale" },
+        "craving": { "type": "number", "description": "1-5 scale" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "mood", "timestamp"]
+    },
+    "WelfareCheck": {
+      "title": "Welfare Check",
+      "description": "Location snapshot for outreach staff.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Staff UID" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["uid", "location", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/safetyPlans/{userId}": {
+      "schema": "SafetyPlan",
+      "description": "User safety plans"
+    },
+    "/checkins/{checkinId}": {
+      "schema": "DailyCheckIn",
+      "description": "Daily wellness check-ins"
+    },
+    "/welfareChecks/{checkId}": {
+      "schema": "WelfareCheck",
+      "description": "Staff welfare check snapshots"
+    }
+  }
+}
