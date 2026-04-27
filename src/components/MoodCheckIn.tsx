@@ -5,25 +5,44 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { theme } from "../theme";
+import { useAuth } from "../context/AuthContext";
+import { addDoc, collection, serverTimestamp, db } from "../firebase";
 
 interface MoodCheckInProps {
   onComplete: (mood: string, intensity: number) => void;
 }
 
 export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
+  const { user } = useAuth();
   const [moodSelected, setMoodSelected] = useState<string | null>(null);
   const [showIntensity, setShowIntensity] = useState(false);
   const [checkInDone, setCheckInDone] = useState(false);
   const [urgeIntensity, setUrgeIntensity] = useState(3);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleMoodSelect = (mood: string) => {
     setMoodSelected(mood);
     setShowIntensity(true);
   };
 
-  const handleFinalize = () => {
-    setCheckInDone(true);
-    onComplete(moodSelected!, urgeIntensity);
+  const handleFinalize = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    try {
+      await addDoc(collection(db, "checkins"), {
+        uid: user.uid,
+        mood: moodSelected,
+        intensity: urgeIntensity,
+        timestamp: serverTimestamp(),
+      });
+      setCheckInDone(true);
+      onComplete(moodSelected!, urgeIntensity);
+    } catch (error) {
+      console.error("Error saving check-in:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (checkInDone) {
@@ -111,9 +130,10 @@ export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
               </div>
               <Button 
                 onClick={handleFinalize}
+                disabled={isSaving}
                 className="w-full rounded-2xl bg-primary text-white font-bold h-12 transition-all"
               >
-                Complete Check-in <ChevronRight className="ml-2 h-4 w-4" />
+                {isSaving ? "Saving..." : "Complete Check-in"} {!isSaving && <ChevronRight className="ml-2 h-4 w-4" />}
               </Button>
             </motion.div>
           )}
