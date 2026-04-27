@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,15 +9,30 @@ import {
   Trash2, 
   Share2, 
   Lock, 
-  Plus 
+  Plus,
+  Loader2
 } from "lucide-react";
 import { theme } from "../../theme";
+import { 
+  db, 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  serverTimestamp 
+} from "../../firebase";
+import { useAuth } from "../../context/AuthContext";
 
 export function JournalTool({ onBack }: { onBack: () => void }) {
+  const { user } = useAuth();
   const [view, setView] = useState<'list' | 'editor' | 'viewer'>('list');
-  const [entries, setEntries] = useState<any[]>([
-    { id: 1, date: "Oct 12, 2023", text: "Today felt manageable. I practiced my grounding exercises when I felt overwhelmed at the grocery store.", shared: true, wordCount: 18 },
-  ]);
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentEntry, setCurrentEntry] = useState<any>(null);
   const [promptIdx, setPromptIdx] = useState(0);
 
@@ -28,14 +43,66 @@ export function JournalTool({ onBack }: { onBack: () => void }) {
     "If you could say one kind thing to your past self, what would it be?",
   ];
 
-  const handleSave = () => {
-    if (currentEntry.id) {
-      setEntries(entries.map(e => e.id === currentEntry.id ? currentEntry : e));
-    } else {
-      const newEntry = { ...currentEntry, id: Date.now(), date: new Date().toLocaleDateString(), wordCount: currentEntry.text.split(/\s+/).length };
-      setEntries([newEntry, ...entries]);
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "journals"),
+      where("uid", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().createdAt?.toDate?.()?.toLocaleDateString() || "Just now"
+      }));
+      setEntries(docs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Journal Snapshot Error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user || !currentEntry.text.trim()) return;
+
+    const wordCount = currentEntry.text.trim().split(/\s+/).length;
+
+    try {
+      if (currentEntry.id) {
+        const entryRef = doc(db, "journals", currentEntry.id);
+        await updateDoc(entryRef, {
+          text: currentEntry.text,
+          shared: currentEntry.shared,
+          wordCount
+        });
+      } else {
+        await addDoc(collection(db, "journals"), {
+          uid: user.uid,
+          text: currentEntry.text,
+          shared: currentEntry.shared,
+          createdAt: new Date().toISOString(), // Using string for now to match rules validation if needed, or use serverTimestamp
+          wordCount
+        });
+      }
+      setView('list');
+    } catch (error) {
+      console.error("Error saving journal entry:", error);
     }
-    setView('list');
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "journals", id));
+      setView('list');
+    } catch (error) {
+      console.error("Error deleting journal entry:", error);
+    }
   };
 
   if (view === 'editor') {
@@ -85,7 +152,7 @@ export function JournalTool({ onBack }: { onBack: () => void }) {
             <ChevronLeft className="h-6 w-6" />
           </button>
           <div className="text-[10px] font-bold" style={{ color: theme.muted }}>{currentEntry.date}</div>
-          <button onClick={() => { setEntries(entries.filter(e => e.id !== currentEntry.id)); setView('list'); }} className="p-2 text-red-400 hover:text-red-500 transition-colors">
+          <button onClick={() => handleDelete(currentEntry.id)} className="p-2 text-red-400 hover:text-red-500 transition-colors">
             <Trash2 className="h-5 w-5" />
           </button>
         </div>
@@ -116,7 +183,11 @@ export function JournalTool({ onBack }: { onBack: () => void }) {
 
       <ScrollArea className="flex-1">
         <div className="space-y-3 pb-24">
-          {entries.length === 0 ? (
+          {loading ? (
+            <div className="flex h-32 items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : entries.length === 0 ? (
             <div className="py-12 text-center" style={{ color: theme.muted }}>
               <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p className="text-sm">No entries yet. Start your first reflection.</p>

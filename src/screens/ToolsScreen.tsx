@@ -5,95 +5,121 @@ import { Button } from "@/components/ui/button";
 import { 
   Wind, 
   Brain, 
-  ClipboardList, 
   BookOpen, 
   History, 
-  ChevronRight 
+  ChevronRight,
+  ShieldAlert,
+  Scale
 } from "lucide-react";
-import { theme } from "../theme";
-
-// These would ideally be in their own files too, but for now I'll keep them here or move them later
-// if the wireframe specifically asks for them. The wireframe only lists ToolsScreen.js.
+import { useAppTheme } from "../theme/AppTheme";
 
 import { BreathworkTool } from "../components/tools/BreathworkTool";
 import { GroundingTool } from "../components/tools/GroundingTool";
-import { CBTTool } from "../components/tools/CBTTool";
+import { DBTTool } from "../components/tools/DBTTool";
+import { ThoughtRecordTool } from "../components/tools/ThoughtRecordTool";
 import { JournalTool } from "../components/tools/JournalTool";
+import { ToolHistoryScreen } from "./ToolHistoryScreen";
 
 export function ToolsScreen() {
+  const { colors } = useAppTheme();
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [toolParams, setToolParams] = useState<any>(null);
+
+  const openTool = (tool: string, params?: any) => {
+    setActiveTool(tool);
+    setToolParams(params);
+  };
 
   if (activeTool === "breathwork") return <BreathworkTool onBack={() => setActiveTool(null)} />;
   if (activeTool === "grounding") return <GroundingTool onBack={() => setActiveTool(null)} />;
-  if (activeTool === "cbt") return <CBTTool onBack={() => setActiveTool(null)} />;
+  if (activeTool === "dbt") return <DBTTool onBack={() => setActiveTool(null)} />;
+  if (activeTool === "thought-record") return <ThoughtRecordTool onBack={() => setActiveTool(null)} />;
   if (activeTool === "journal") return <JournalTool onBack={() => setActiveTool(null)} />;
+  if (activeTool === "history") return <ToolHistoryScreen onBack={() => setActiveTool(null)} onResumeCBT={(id, data) => openTool('thought-record', { id, data })} />;
   
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-4 p-4 pb-24">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-wide" style={{ color: theme.foreground }}>Wellness Tools</h3>
+    <ScrollArea className="h-full bg-background">
+      <div className="space-y-6 p-6 pb-24">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[14px] font-bold uppercase tracking-widest opacity-40 px-1" style={{ color: colors.text }}>Wellness Tools</h3>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Card onClick={() => setActiveTool("breathwork")} className="cursor-pointer border-0 shadow-sm rounded-3xl transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: theme.secondary }}>
-            <CardContent className="p-4">
-              <div className="mb-3 inline-flex rounded-2xl p-3" style={{ backgroundColor: theme.soft }}>
-                <Wind className="h-5 w-5" style={{ color: theme.primary }} />
+        <div className="grid grid-cols-2 gap-4">
+          <Card onClick={() => setActiveTool("breathwork")} className="cursor-pointer border-0 shadow-sm rounded-[24px] transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: colors.surfaceAlt }}>
+            <CardContent className="p-5">
+              <div className="mb-4 inline-flex rounded-[18px] p-3 bg-primary/10">
+                <Wind className="h-6 w-6 text-primary" />
               </div>
-              <div className="font-bold text-sm" style={{ color: theme.foreground }}>Breathwork</div>
-              <div className="text-[10px] font-medium" style={{ color: theme.muted }}>Box & 4-7-8 Reset</div>
+              <div className="font-bold text-[15px]" style={{ color: colors.text }}>Breathwork</div>
+              <div className="text-[11px] font-medium opacity-60" style={{ color: colors.text }}>Box & 4-7-8 Reset</div>
             </CardContent>
           </Card>
-          <Card onClick={() => setActiveTool("grounding")} className="cursor-pointer border-0 shadow-sm rounded-3xl transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: theme.secondary }}>
-            <CardContent className="p-4">
-              <div className="mb-3 inline-flex rounded-2xl p-3" style={{ backgroundColor: theme.soft }}>
-                <Brain className="h-5 w-5" style={{ color: theme.primary }} />
+          <Card onClick={() => setActiveTool("grounding")} className="cursor-pointer border-0 shadow-sm rounded-[24px] transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: colors.surfaceAlt }}>
+            <CardContent className="p-5">
+              <div className="mb-4 inline-flex rounded-[18px] p-3 bg-primary/10">
+                <Brain className="h-6 w-6 text-primary" />
               </div>
-              <div className="font-bold text-sm" style={{ color: theme.foreground }}>Grounding</div>
-              <div className="text-[10px] font-medium" style={{ color: theme.muted }}>5-4-3-2-1 Sensory</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-wide" style={{ color: theme.foreground }}>CBT & Journaling</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Card onClick={() => setActiveTool("cbt")} className="cursor-pointer border-0 shadow-sm rounded-3xl transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: theme.secondary }}>
-            <CardContent className="p-4">
-              <div className="mb-3 inline-flex rounded-2xl p-3" style={{ backgroundColor: theme.softAccent }}>
-                <ClipboardList className="h-5 w-5" style={{ color: theme.accent }} />
-              </div>
-              <div className="font-bold text-sm" style={{ color: theme.foreground }}>CBT Records</div>
-              <div className="text-[10px] font-medium" style={{ color: theme.muted }}>Reframe Thoughts</div>
-            </CardContent>
-          </Card>
-          <Card onClick={() => setActiveTool("journal")} className="cursor-pointer border-0 shadow-sm rounded-3xl transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: theme.secondary }}>
-            <CardContent className="p-4">
-              <div className="mb-3 inline-flex rounded-2xl p-3" style={{ backgroundColor: theme.soft }}>
-                <BookOpen className="h-5 w-5" style={{ color: theme.primary }} />
-              </div>
-              <div className="font-bold text-sm" style={{ color: theme.foreground }}>Journal</div>
-              <div className="text-[10px] font-medium" style={{ color: theme.muted }}>Private Reflections</div>
+              <div className="font-bold text-[15px]" style={{ color: colors.text }}>Grounding</div>
+              <div className="text-[11px] font-medium opacity-60" style={{ color: colors.text }}>5-4-3-2-1 Sensory</div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-wide" style={{ color: theme.foreground }}>Recent Reflections</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-[14px] font-bold uppercase tracking-widest opacity-40 px-1" style={{ color: colors.text }}>Therapeutic Tools</h3>
         </div>
-        <Card className="border-0 shadow-sm rounded-3xl" style={{ backgroundColor: theme.secondary }}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-white/5 flex items-center justify-center">
-                <History className="h-5 w-5" style={{ color: theme.muted }} />
+        <div className="grid grid-cols-2 gap-4">
+          <Card onClick={() => setActiveTool("dbt")} className="cursor-pointer border-0 shadow-sm rounded-[24px] transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: colors.surfaceAlt }}>
+            <CardContent className="p-5">
+              <div className="mb-4 inline-flex rounded-[18px] p-3 bg-orange-500/10">
+                <ShieldAlert className="h-6 w-6 text-orange-500" />
+              </div>
+              <div className="font-bold text-[15px]" style={{ color: colors.text }}>DBT Skills</div>
+              <div className="text-[11px] font-medium opacity-60" style={{ color: colors.text }}>Distress Tolerance</div>
+            </CardContent>
+          </Card>
+          <Card onClick={() => setActiveTool("thought-record")} className="cursor-pointer border-0 shadow-sm rounded-[24px] transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: colors.surfaceAlt }}>
+            <CardContent className="p-5">
+              <div className="mb-4 inline-flex rounded-[18px] p-3 bg-emerald-500/10">
+                <Scale className="h-6 w-6 text-emerald-500" />
+              </div>
+              <div className="font-bold text-[15px]" style={{ color: colors.text }}>Thought Record</div>
+              <div className="text-[11px] font-medium opacity-60" style={{ color: colors.text }}>Reframe Thoughts</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <h3 className="text-[14px] font-bold uppercase tracking-widest opacity-40 px-1" style={{ color: colors.text }}>Journaling</h3>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          <Card onClick={() => setActiveTool("journal")} className="cursor-pointer border-0 shadow-sm rounded-[24px] transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: colors.surfaceAlt }}>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="inline-flex rounded-[18px] p-3 bg-primary/10">
+                <BookOpen className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <div className="text-sm font-bold" style={{ color: theme.foreground }}>View History</div>
-                <div className="text-[10px] font-medium" style={{ color: theme.muted }}>All tools & exercises</div>
+                <div className="font-bold text-[15px]" style={{ color: colors.text }}>Private Journal</div>
+                <div className="text-[11px] font-medium opacity-60" style={{ color: colors.text }}>Reflect on your day and progress</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <h3 className="text-[14px] font-bold uppercase tracking-widest opacity-40 px-1" style={{ color: colors.text }}>Recent Reflections</h3>
+        </div>
+        <Card onClick={() => setActiveTool("history")} className="cursor-pointer border-0 shadow-sm rounded-[24px] transition-all hover:ring-1 hover:ring-primary/30" style={{ backgroundColor: colors.surfaceAlt }}>
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-background/50 flex items-center justify-center">
+                <History className="h-6 w-6 opacity-40" style={{ color: colors.text }} />
+              </div>
+              <div>
+                <div className="text-[15px] font-bold" style={{ color: colors.text }}>View History</div>
+                <div className="text-[11px] font-medium opacity-40" style={{ color: colors.text }}>All tools & exercises</div>
               </div>
             </div>
-            <ChevronRight className="h-4 w-4" style={{ color: theme.muted }} />
+            <ChevronRight className="h-5 w-5 opacity-30" style={{ color: colors.text }} />
           </CardContent>
         </Card>
       </div>

@@ -5,18 +5,31 @@ import {
   ChevronLeft, 
   ShieldCheck, 
   Info,
-  User
+  User as UserIcon
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { theme } from "../theme";
+import { 
+  db, 
+  auth, 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
+  serverTimestamp,
+  limit 
+} from "../firebase";
 
 interface Message {
   id: string;
-  sender: string;
+  senderId: string;
+  senderName: string;
   text: string;
-  timestamp: string;
+  timestamp: any;
   isMe: boolean;
 }
 
@@ -26,13 +39,49 @@ interface PeerChatRoomProps {
 }
 
 export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: "1", sender: "Peer 42", text: "Welcome to the group! This is a safe space.", timestamp: "10:00 AM", isMe: false },
-    { id: "2", sender: "Peer 15", text: "Thanks, glad to be here. Just taking it one day at a time.", timestamp: "10:05 AM", isMe: false },
-    { id: "3", sender: "Peer 88", text: "Anyone have tips for managing cravings in the evening?", timestamp: "10:12 AM", isMe: false },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [anonymousName, setAnonymousName] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const user = auth.currentUser;
+
+  // Generate or retrieve anonymous name
+  useEffect(() => {
+    const savedName = sessionStorage.getItem("anonymousName");
+    if (savedName) {
+      setAnonymousName(savedName);
+    } else {
+      const randomId = Math.floor(Math.random() * 1000);
+      const newName = `Peer ${randomId}`;
+      sessionStorage.setItem("anonymousName", newName);
+      setAnonymousName(newName);
+    }
+  }, []);
+
+  // Listen for messages
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "messages"),
+      where("channel", "==", channelName),
+      orderBy("timestamp", "asc"),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        isMe: doc.data().senderId === user.uid
+      })) as Message[];
+      setMessages(msgs);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [channelName, user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,19 +91,31 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !user) return;
 
-    const msg: Message = {
-      id: Date.now().toString(),
-      sender: "Me (Anonymous)",
-      text: newMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true
-    };
+    const messageText = newMessage;
+    setNewMessage(""); // Clear input early for UX
 
-    setMessages([...messages, msg]);
-    setNewMessage("");
+    try {
+      await addDoc(collection(db, "messages"), {
+        text: messageText,
+        senderId: user.uid,
+        senderName: anonymousName,
+        channel: channelName,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Optionally restore input if send fails
+      setNewMessage(messageText);
+    }
+  };
+
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return "";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -79,45 +140,57 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
             </div>
           </div>
         </div>
-        <button className="rounded-full p-2 hover:bg-white/5" style={{ color: theme.muted }}>
-          <Info className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+          <span className="text-[10px] font-bold text-primary">{anonymousName}</span>
+        </div>
       </div>
 
       {/* Chat Area */}
       <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4 pb-4">
+        <div className="space-y-6 pb-4">
           <div className="flex justify-center">
             <div className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium" style={{ color: theme.muted }}>
-              Today
+              Recovery Support Space
             </div>
           </div>
 
-          {messages.map((msg) => (
-            <div 
-              key={msg.id} 
-              className={`flex flex-col ${msg.isMe ? "items-end" : "items-start"}`}
-            >
-              <div className="mb-1 flex items-center gap-1 px-1">
-                {!msg.isMe && <User className="h-3 w-3" style={{ color: theme.primary }} />}
-                <span className="text-[10px] font-bold" style={{ color: theme.muted }}>
-                  {msg.sender}
-                </span>
-              </div>
+          {messages.map((msg, index) => {
+            const isFirstInGroup = index === 0 || messages[index - 1].senderId !== msg.senderId;
+            const showTimestamp = index === messages.length - 1 || 
+                                messages[index + 1].senderId !== msg.senderId ||
+                                (msg.timestamp && messages[index + 1].timestamp && 
+                                 Math.abs(msg.timestamp.seconds - messages[index + 1].timestamp.seconds) > 300);
+
+            return (
               <div 
-                className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                  msg.isMe 
-                    ? "bg-primary text-background rounded-tr-none" 
-                    : "bg-white/5 text-foreground rounded-tl-none border border-white/5"
-                }`}
+                key={msg.id} 
+                className={`flex flex-col ${msg.isMe ? "items-end" : "items-start"} ${isFirstInGroup ? "mt-4" : "mt-1"}`}
               >
-                {msg.text}
+                {isFirstInGroup && (
+                  <div className="mb-1 flex items-center gap-1 px-1">
+                    {!msg.isMe && <UserIcon className="h-3 w-3" style={{ color: theme.primary }} />}
+                    <span className="text-[10px] font-bold" style={{ color: theme.muted }}>
+                      {msg.isMe ? "You" : msg.senderName}
+                    </span>
+                  </div>
+                )}
+                <div 
+                  className={`max-w-[80%] px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
+                    msg.isMe 
+                      ? `bg-primary text-white ${isFirstInGroup ? "rounded-2xl rounded-tr-none" : "rounded-2xl"}` 
+                      : `bg-white/5 text-foreground border border-white/5 ${isFirstInGroup ? "rounded-2xl rounded-tl-none" : "rounded-2xl"}`
+                  }`}
+                >
+                  {msg.text}
+                </div>
+                {showTimestamp && (
+                  <span className="mt-1 px-1 text-[9px] font-medium opacity-40" style={{ color: theme.muted }}>
+                    {formatTime(msg.timestamp)}
+                  </span>
+                )}
               </div>
-              <span className="mt-1 px-1 text-[9px] font-medium" style={{ color: theme.muted }}>
-                {msg.timestamp}
-              </span>
-            </div>
-          ))}
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
@@ -135,10 +208,10 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
           <Button 
             onClick={handleSendMessage}
             disabled={!newMessage.trim()}
-            className="h-12 w-12 rounded-2xl p-0"
+            className="h-12 w-12 rounded-2xl p-0 transition-all duration-300"
             style={{ backgroundColor: newMessage.trim() ? theme.primary : "rgba(255,255,255,0.05)" }}
           >
-            <Send className={`h-5 w-5 ${newMessage.trim() ? "text-background" : "text-white/20"}`} />
+            <Send className={`h-5 w-5 ${newMessage.trim() ? "text-white" : "text-white/20"}`} />
           </Button>
         </div>
       </div>

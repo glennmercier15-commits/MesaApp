@@ -16,7 +16,7 @@ import {
   Camera
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
+import { useAppTheme } from "../theme/AppTheme";
 import { theme as themeTokens } from "../theme";
 import { Switch } from "@/components/ui/switch";
 import { storage, ref, uploadBytes, getDownloadURL } from "../firebase";
@@ -27,7 +27,7 @@ interface ProfileScreenProps {
 
 export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
   const { user, logout, updateUserPhotoURL } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { mode, toggleTheme } = useAppTheme();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const initials = user?.displayName?.split(' ').map(n => n[0]).join('') || '??';
 
@@ -85,7 +85,6 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
               {[
                 { label: "My Safety Plan", sub: "Encrypted & Secure", icon: Shield, screen: 'safety-plan' },
                 { label: "STOP Smoking Log", sub: "NRT & Craving Tracking", icon: Flame, screen: 'stop-smoking' },
-                { label: "Welfare Check", sub: "Send Location Snapshot", icon: MapPin, screen: 'welfare-check' },
               ].map((item) => (
                 <Card key={item.label} onClick={() => onNavigate(item.screen)} className="glass border-0 rounded-[2rem] overflow-hidden cursor-pointer group hover:bg-white/10 transition-colors">
                   <CardContent className="flex items-center justify-between p-5">
@@ -111,15 +110,15 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
               <div className="flex items-center justify-between p-5 rounded-[2rem] glass">
                 <div className="flex items-center gap-4">
                   <div className="rounded-2xl p-3 bg-white/5">
-                    {theme === 'dark' ? <Moon className="h-5 w-5 opacity-40" /> : <Sun className="h-5 w-5 text-primary" />}
+                    {mode === 'dark' ? <Moon className="h-5 w-5 opacity-40" /> : <Sun className="h-5 w-5 text-primary" />}
                   </div>
                   <div>
-                    <span className="text-sm font-bold block" style={{ color: themeTokens.foreground }}>Light Mode</span>
-                    <span className="text-[10px] font-medium opacity-40 uppercase tracking-widest">Sky Blue Palette</span>
+                    <span className="text-sm font-bold block" style={{ color: themeTokens.foreground }}>{mode === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+                    <span className="text-[10px] font-medium opacity-40 uppercase tracking-widest">{mode === 'dark' ? 'Midnight Palette' : 'Sky Blue Palette'}</span>
                   </div>
                 </div>
                 <Switch 
-                  checked={theme === 'light'} 
+                  checked={mode === 'light'} 
                   onCheckedChange={toggleTheme}
                 />
               </div>

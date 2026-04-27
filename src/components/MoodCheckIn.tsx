@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { motion } from "motion/react";
-import { HeartPulse, CheckCircle2, Zap } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { HeartPulse, CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -12,15 +12,18 @@ interface MoodCheckInProps {
 
 export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
   const [moodSelected, setMoodSelected] = useState<string | null>(null);
+  const [showIntensity, setShowIntensity] = useState(false);
   const [checkInDone, setCheckInDone] = useState(false);
   const [urgeIntensity, setUrgeIntensity] = useState(3);
 
   const handleMoodSelect = (mood: string) => {
     setMoodSelected(mood);
-    setTimeout(() => {
-      setCheckInDone(true);
-      onComplete(mood, urgeIntensity);
-    }, 600);
+    setShowIntensity(true);
+  };
+
+  const handleFinalize = () => {
+    setCheckInDone(true);
+    onComplete(moodSelected!, urgeIntensity);
   };
 
   if (checkInDone) {
@@ -31,20 +34,19 @@ export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
       >
         <Card className="glass border-0 rounded-[2rem] overflow-hidden">
           <CardContent className="p-8 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-primary/20 shadow-inner">
-              <CheckCircle2 className="h-10 w-10" style={{ color: theme.primary }} />
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-primary/20">
+              <CheckCircle2 className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="text-2xl font-serif font-bold mb-3" style={{ color: theme.foreground }}>Check-in complete</h2>
-            <p className="text-sm leading-relaxed mb-8 opacity-60" style={{ color: theme.foreground }}>
-              Thank you for showing up for yourself today. Your support team has been updated on your {moodSelected?.toLowerCase()} mood.
+            <h2 className="text-2xl font-bold mb-3" style={{ color: theme.foreground }}>You showed up for yourself</h2>
+            <p className="text-sm leading-relaxed mb-8 opacity-70" style={{ color: theme.foreground }}>
+              Every check-in is a step forward. Thank you for sharing how you're feeling today.
             </p>
             <Button 
               variant="ghost" 
-              size="sm" 
-              className="rounded-2xl glass hover:bg-white/10 text-white/70 px-6 h-10" 
-              onClick={() => setCheckInDone(false)}
+              className="rounded-2xl text-primary/70 hover:text-primary" 
+              onClick={() => { setCheckInDone(false); setMoodSelected(null); setShowIntensity(false); }}
             >
-              Update check-in
+              Reset
             </Button>
           </CardContent>
         </Card>
@@ -54,53 +56,68 @@ export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
 
   return (
     <Card className="glass border-0 rounded-[2rem] overflow-hidden">
-      <CardContent className="p-6 text-white">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Daily Pulse</p>
-            <h2 className="text-2xl font-serif font-bold mt-1">How are you feeling?</h2>
-          </div>
-          <div className="rounded-2xl p-3 bg-white/5">
-            <HeartPulse className="h-6 w-6 text-primary" />
-          </div>
+      <CardContent className="p-8">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold" style={{ color: theme.foreground }}>How are you doing today?</h2>
+          <p className="text-sm opacity-60 mt-1" style={{ color: theme.foreground }}>Take a moment to check in with yourself.</p>
         </div>
-        <div className="grid grid-cols-5 gap-3">
-          {[
-            { label: "Low", emoji: "😔" },
-            { label: "Heavy", emoji: "🌧️" },
-            { label: "Okay", emoji: "😐" },
-            { label: "Steady", emoji: "🌿" },
-            { label: "Strong", emoji: "☀️" }
-          ].map((mood) => (
-            <button
-              key={mood.label}
-              onClick={() => handleMoodSelect(mood.label)}
-              className={`flex flex-col items-center gap-2 rounded-2xl py-4 transition-all duration-300 ${moodSelected === mood.label ? 'bg-primary text-white scale-105 shadow-lg shadow-primary/20' : 'bg-white/5 hover:bg-white/10 opacity-60 hover:opacity-100'}`}
+
+        <AnimatePresence mode="wait">
+          {!showIntensity ? (
+            <motion.div
+              key="mood-select"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-5 gap-3"
             >
-              <span className="text-2xl">{mood.emoji}</span>
-              <span className="text-[10px] font-bold uppercase tracking-widest">{mood.label}</span>
-            </button>
-          ))}
-        </div>
-        <div className="mt-8 rounded-3xl bg-white/5 p-6">
-          <div className="mb-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest opacity-60">
-            <span>Urge intensity</span>
-            <span className="text-primary">{urgeIntensity} / 10</span>
-          </div>
-          <Slider 
-            value={[urgeIntensity]} 
-            max={10} 
-            step={1} 
-            onValueChange={(val) => setUrgeIntensity(val[0])}
-            className="py-2"
-          />
-        </div>
-        <Button 
-          onClick={() => handleMoodSelect("Okay")}
-          className="w-full mt-6 rounded-2xl bg-white/5 hover:bg-white/10 text-primary font-bold text-[10px] uppercase tracking-[0.2em] h-12 border border-primary/20 transition-all duration-300"
-        >
-          <Zap className="mr-2 h-3 w-3" /> Quick Check-in (Okay)
-        </Button>
+              {[
+                { label: "Low", emoji: "😔" },
+                { label: "Heavy", emoji: "🌧️" },
+                { label: "Okay", emoji: "😐" },
+                { label: "Steady", emoji: "🌿" },
+                { label: "Strong", emoji: "☀️" }
+              ].map((mood) => (
+                <button
+                  key={mood.label}
+                  onClick={() => handleMoodSelect(mood.label)}
+                  className="flex flex-col items-center gap-2 rounded-2xl py-4 bg-white/5 hover:bg-white/10 transition-all"
+                >
+                  <span className="text-2xl">{mood.emoji}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{mood.label}</span>
+                </button>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="intensity-select"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="space-y-6"
+            >
+              <div className="rounded-3xl bg-white/5 p-6">
+                <div className="mb-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest opacity-60">
+                  <span>Need extra support?</span>
+                  <span className="text-primary">{urgeIntensity}</span>
+                </div>
+                <Slider 
+                  value={[urgeIntensity]} 
+                  max={10} 
+                  step={1} 
+                  onValueChange={(val) => setUrgeIntensity(val[0])}
+                  className="py-2"
+                />
+                <p className="text-[10px] opacity-50 mt-2">Adjust if you're feeling overwhelmed.</p>
+              </div>
+              <Button 
+                onClick={handleFinalize}
+                className="w-full rounded-2xl bg-primary text-white font-bold h-12 transition-all"
+              >
+                Complete Check-in <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CardContent>
     </Card>
   );

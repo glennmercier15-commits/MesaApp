@@ -6,32 +6,20 @@ import {
   Signal, 
 } from "lucide-react";
 import { theme } from "./theme";
-import { CrisisButton } from "./components/CrisisButton";
+import { CrisisFAB } from "./components/CrisisFAB";
 import { MainNavigator } from "./navigation/MainNavigator";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { AppThemeProvider, useAppTheme } from "./theme/AppTheme";
 import { LoginScreen } from "./screens/LoginScreen";
 import { NotificationProvider, useNotifications } from "./context/NotificationContext";
 import { NotificationCenter } from "./components/NotificationCenter";
 import { Bell } from "lucide-react";
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
 function AppContent() {
   const { user, loading } = useAuth();
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
-  const [locationDenied, setLocationDenied] = React.useState(false);
-
-  React.useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        () => {},
-        (error) => {
-          if (error.code === error.PERMISSION_DENIED) {
-            setLocationDenied(true);
-          }
-        }
-      );
-    }
-  }, []);
 
   if (loading) {
     return (
@@ -46,27 +34,14 @@ function AppContent() {
   }
 
   return (
-    <div className="flex h-full flex-col relative">
-      {locationDenied && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 p-6 backdrop-blur-sm">
-          <div className="rounded-3xl bg-card p-8 text-center shadow-2xl border border-white/10">
-            <h2 className="text-xl font-bold text-foreground">Location Access Needed</h2>
-            <p className="mt-4 text-sm opacity-70 leading-relaxed">
-              We need your location to provide essential features like welfare checks and community support. Please enable location services in your browser settings.
-            </p>
-          </div>
-        </div>
-      )}
-      <CrisisButton />
-      
-      {/* App Header with Notifications */}
-      <div className="flex items-center justify-between px-6 py-2">
-        <div /> {/* Spacer */}
+    <div className="flex h-full flex-col relative bg-background">
+      <div className="flex items-center justify-between px-6 py-4 bg-background z-20">
+        <span className="text-lg font-bold text-foreground">MindBridge</span>
         <NotificationBell onClick={() => setIsNotificationsOpen(true)} />
       </div>
-
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <MainNavigator />
+        <CrisisFAB />
       </div>
 
       <NotificationCenter 
@@ -97,28 +72,29 @@ function NotificationBell({ onClick }: { onClick: () => void }) {
 }
 
 function PhoneFrame({ children }: { children: React.ReactNode }) {
+  const { isDark } = useAppTheme();
   return (
-    <div className="relative mx-auto h-[844px] w-[390px] overflow-hidden rounded-[3rem] border-[8px] border-secondary bg-background shadow-2xl ring-1 ring-white/10">
+    <div className={`relative mx-auto h-[844px] w-[390px] overflow-hidden rounded-[3rem] border-[8px] ${isDark ? 'border-[#162044]' : 'border-[#EEF1F6]'} bg-background shadow-2xl ring-1 ring-black/5`}>
       {/* Notch */}
-      <div className="absolute left-1/2 top-0 z-50 h-7 w-32 -translate-x-1/2 rounded-b-3xl bg-secondary" />
+      <div className={`absolute left-1/2 top-0 z-50 h-7 w-32 -translate-x-1/2 rounded-b-3xl ${isDark ? 'bg-[#162044]' : 'bg-[#EEF1F6]'}`} />
       
       {/* Status Bar */}
-      <div className="absolute left-0 right-0 top-0 z-40 flex items-center justify-between px-8 pt-3 text-[10px] font-bold opacity-60">
+      <div className="absolute left-0 right-0 top-0 z-40 flex items-center justify-between px-8 pt-3 text-[12px] font-semibold opacity-60">
         <span>9:41</span>
         <div className="flex items-center gap-1.5">
-          <Signal className="h-3 w-3" />
-          <Wifi className="h-3 w-3" />
-          <Battery className="h-3 w-3" />
+          <Signal className="h-3.5 w-3.5" />
+          <Wifi className="h-3.5 w-3.5" />
+          <Battery className="h-3.5 w-3.5" />
         </div>
       </div>
 
       {/* Content */}
-      <div className="h-full pt-10">
+      <div className="h-full">
         {children}
       </div>
 
       {/* Home Indicator */}
-      <div className="absolute bottom-1 left-1/2 h-1 w-32 -translate-x-1/2 rounded-full bg-white/20" />
+      <div className="absolute bottom-1.5 left-1/2 h-1 w-32 -translate-x-1/2 rounded-full bg-foreground/10" />
     </div>
   );
 }
@@ -127,7 +103,7 @@ export default function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <ThemeProvider>
+        <AppThemeProvider>
           <div className="flex min-h-screen items-center justify-center bg-background p-4 font-sans selection:bg-primary/30 transition-colors duration-500">
             <div className="flex w-full max-w-5xl flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-center">
               
@@ -165,7 +141,9 @@ export default function App() {
         {/* Interactive Phone */}
         <div className="relative">
           <PhoneFrame>
-            <AppContent />
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
           </PhoneFrame>
           
           {/* Decorative Glow */}
@@ -179,8 +157,8 @@ export default function App() {
         </div>
       </div>
     </div>
-        </ThemeProvider>
-      </NotificationProvider>
-    </AuthProvider>
-  );
+        </AppThemeProvider>
+    </NotificationProvider>
+  </AuthProvider>
+);
 }

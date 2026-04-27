@@ -1,5 +1,79 @@
 {
   "entities": {
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "Anonymous message in a peer support channel.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "channel": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderId", "senderName", "channel", "timestamp"]
+    },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "Private or shared reflection entry.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Owner UID" },
+        "text": { "type": "string" },
+        "shared": { "type": "boolean", "description": "Whether shared with care team" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "wordCount": { "type": "number" }
+      },
+      "required": ["uid", "text", "shared", "createdAt"]
+    },
+    "BreathworkSession": {
+      "title": "Breathwork Session",
+      "description": "Record of a completed breathing exercise.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "technique": { "type": "string", "enum": ["box", "478"] },
+        "cycles": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "technique", "cycles", "timestamp"]
+    },
+    "GroundingSession": {
+      "title": "Grounding Session",
+      "description": "Record of a completed 5-4-3-2-1 grounding exercise.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "responses": { 
+          "type": "object",
+          "properties": {
+            "see": { "type": "array", "items": { "type": "string" } },
+            "touch": { "type": "array", "items": { "type": "string" } },
+            "hear": { "type": "array", "items": { "type": "string" } },
+            "smell": { "type": "array", "items": { "type": "string" } },
+            "taste": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "required": ["uid", "timestamp", "responses"]
+    },
+    "CBTRecord": {
+      "title": "CBT Record",
+      "description": "Cognitive Behavioral Therapy thought record.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "situation": { "type": "string" },
+        "automaticThought": { "type": "string" },
+        "emotion": { "type": "string" },
+        "evidence": { "type": "string" },
+        "balancedThought": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "completed"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "status", "updatedAt"]
+    },
     "User": {
       "title": "User Profile",
       "description": "Stores user profile information and roles.",
@@ -20,21 +94,14 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string", "description": "Owner UID" },
-        "triggers": { "type": "array", "items": { "type": "string" } },
+        "warningSigns": { "type": "array", "items": { "type": "string" } },
         "copingStrategies": { "type": "array", "items": { "type": "string" } },
-        "emergencyContacts": { 
-          "type": "array", 
-          "items": { 
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "phone": { "type": "string" }
-            }
-          }
-        },
+        "socialContacts": { "type": "array", "items": { "type": "string" } },
+        "professionalSupport": { "type": "array", "items": { "type": "string" } },
+        "safeEnvironment": { "type": "array", "items": { "type": "string" } },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid"]
+      "required": ["uid", "updatedAt"]
     },
     "DailyCheckIn": {
       "title": "Daily Check-in",
@@ -83,6 +150,26 @@
     "/welfareChecks/{checkId}": {
       "schema": "WelfareCheck",
       "description": "Staff welfare check snapshots"
+    },
+    "/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Peer support chat messages"
+    },
+    "/journals/{entryId}": {
+      "schema": "JournalEntry",
+      "description": "Private or shared journal entries"
+    },
+    "/breathworkSessions/{sessionId}": {
+      "schema": "BreathworkSession",
+      "description": "Completed breathing exercise sessions"
+    },
+    "/groundingSessions/{sessionId}": {
+      "schema": "GroundingSession",
+      "description": "Completed grounding exercise sessions"
+    },
+    "/cbtRecords/{recordId}": {
+      "schema": "CBTRecord",
+      "description": "CBT thought records"
     }
   }
 }

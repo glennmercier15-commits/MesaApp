@@ -9,13 +9,28 @@ service cloud.firestore {
     // Fields: uid, email, displayName, role, location, createdAt
     //
     // Collection: safetyPlans
-    // Fields: uid, triggers, copingStrategies, emergencyContacts, updatedAt
+    // Fields: uid, warningSigns, copingStrategies, socialContacts, professionalSupport, safeEnvironment, updatedAt
     //
     // Collection: checkins
     // Fields: uid, mood, craving, timestamp
     //
     // Collection: welfareChecks
     // Fields: uid, location, timestamp, notes
+    //
+    // Collection: messages
+    // Fields: text, senderId, senderName, channel, timestamp
+    //
+    // Collection: journals
+    // Fields: uid, text, shared, createdAt, wordCount
+    //
+    // Collection: breathworkSessions
+    // Fields: uid, technique, cycles, timestamp
+    //
+    // Collection: groundingSessions
+    // Fields: uid, timestamp, responses
+    //
+    // Collection: cbtRecords
+    // Fields: uid, situation, automaticThought, emotion, evidence, balancedThought, status, updatedAt
     //
     // ===============================================================
 
@@ -49,6 +64,48 @@ service cloud.firestore {
              data.role in ['client', 'outreach', 'admin'];
     }
 
+    function isValidJournalEntry(data) {
+      return data.keys().hasAll(['uid', 'text', 'shared', 'createdAt']) &&
+             data.uid is string &&
+             data.text is string &&
+             data.text.size() < 10000 &&
+             data.shared is bool &&
+             data.createdAt is string;
+    }
+
+    function isValidBreathworkSession(data) {
+      return data.keys().hasAll(['uid', 'technique', 'cycles', 'timestamp']) &&
+             data.uid is string &&
+             data.technique in ['box', '478'] &&
+             data.cycles is number &&
+             data.timestamp is string;
+    }
+
+    function isValidGroundingSession(data) {
+      return data.keys().hasAll(['uid', 'timestamp', 'responses']) &&
+             data.uid is string &&
+             data.timestamp is string &&
+             data.responses is map;
+    }
+
+    function isValidCBTRecord(data) {
+      return data.keys().hasAll(['uid', 'status', 'updatedAt']) &&
+             data.uid is string &&
+             data.status in ['draft', 'completed'] &&
+             data.updatedAt is string;
+    }
+
+    function isValidSafetyPlan(data) {
+      return data.keys().hasAll(['uid', 'updatedAt']) &&
+             data.uid is string &&
+             data.updatedAt is string &&
+             (!('warningSigns' in data) || data.warningSigns is list) &&
+             (!('copingStrategies' in data) || data.copingStrategies is list) &&
+             (!('socialContacts' in data) || data.socialContacts is list) &&
+             (!('professionalSupport' in data) || data.professionalSupport is list) &&
+             (!('safeEnvironment' in data) || data.safeEnvironment is list);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -61,7 +118,7 @@ service cloud.firestore {
 
     match /safetyPlans/{userId} {
       allow read: if isAuthenticated() && (isOwner(userId) || isStaff());
-      allow write: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId) && isValidSafetyPlan(request.resource.data);
     }
 
     match /checkins/{checkinId} {
@@ -78,6 +135,37 @@ service cloud.firestore {
       allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
       allow update: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                    request.resource.data.senderId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['text', 'senderId', 'senderName', 'channel', 'timestamp']);
+    }
+
+    match /journals/{entryId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || (isStaff() && resource.data.shared == true));
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidJournalEntry(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidJournalEntry(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /breathworkSessions/{sessionId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isStaff());
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidBreathworkSession(request.resource.data);
+    }
+
+    match /groundingSessions/{sessionId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isStaff());
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidGroundingSession(request.resource.data);
+    }
+
+    match /cbtRecords/{recordId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isStaff());
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidCBTRecord(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidCBTRecord(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
     // Default deny

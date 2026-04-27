@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,125 +15,199 @@ import {
   Plus,
   Trash2,
   Check,
-  X
+  X,
+  Loader2
 } from "lucide-react";
-import { theme } from "../theme";
 import { motion, AnimatePresence } from "motion/react";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "../context/AuthContext";
+import { db, doc, setDoc, onSnapshot } from "../firebase";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
+import { useAppTheme } from "../theme/AppTheme";
+import { cn } from "../lib/utils";
 
 interface SafetyPlanScreenProps {
   onBack: () => void;
 }
 
-function SectionTitle({ title, action }: { title: string; action?: string }) {
-  return (
-    <div className="mb-3 flex items-center justify-between">
-      <h3 className="text-sm font-semibold tracking-wide" style={{ color: theme.foreground }}>{title}</h3>
-      {action ? <button className="text-xs font-medium" style={{ color: theme.primary }}>{action}</button> : null}
-    </div>
-  );
+interface SafetyPlanData {
+  warningSigns: string[];
+  copingStrategies: string[];
+  socialContacts: string[];
+  professionalSupport: string[];
+  safeEnvironment: string[];
 }
 
-export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
-  const [sections, setSections] = useState([
-    { id: 'warning', title: "Warning Signs", items: ["Feeling isolated", "Trouble sleeping", "Increased irritability"], icon: AlertTriangle },
-    { id: 'coping', title: "Internal Coping Strategies", items: ["Box breathing", "Going for a walk", "Playing guitar"], icon: Wind },
-    { id: 'social', title: "Social Contacts (Distraction)", items: ["Call Sarah", "Visit the library", "Coffee shop"], icon: Users },
-    { id: 'professional', title: "Professional Support", items: ["MacKay Manor 24hr Line", "Jordan (Case Manager)", "Crisis Services Canada"], icon: PhoneCall },
-    { id: 'environment', title: "Safe Environment", items: ["Remove triggers from home", "Stay in well-lit public spaces"], icon: ShieldCheck },
-  ]);
+const DEFAULT_PLAN: SafetyPlanData = {
+  warningSigns: [],
+  copingStrategies: [],
+  socialContacts: [],
+  professionalSupport: [],
+  safeEnvironment: [],
+};
 
+export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
+  const { user } = useAuth();
+  const { colors } = useAppTheme();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [plan, setPlan] = useState<SafetyPlanData>(DEFAULT_PLAN);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<{ sectionId: string, index: number, value: string } | null>(null);
+  const [editingItem, setEditingItem] = useState<{ sectionId: keyof SafetyPlanData, index: number, value: string } | null>(null);
   const [newItemValue, setNewItemValue] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+
+    const planRef = doc(db, 'safetyPlans', user.uid);
+    
+    const unsubscribe = onSnapshot(planRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setPlan({
+          warningSigns: data.warningSigns || [],
+          copingStrategies: data.copingStrategies || [],
+          socialContacts: data.socialContacts || [],
+          professionalSupport: data.professionalSupport || [],
+          safeEnvironment: data.safeEnvironment || [],
+        });
+      }
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `safetyPlans/${user.uid}`);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const savePlan = async (updatedPlan: SafetyPlanData) => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const planRef = doc(db, 'safetyPlans', user.uid);
+      await setDoc(planRef, {
+        ...updatedPlan,
+        uid: user.uid,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `safetyPlans/${user.uid}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleSection = (id: string) => {
     setExpandedSection(expandedSection === id ? null : id);
     setEditingItem(null);
   };
 
-  const deleteItem = (sectionId: string, itemIndex: number) => {
-    setSections(prev => prev.map(s => {
-      if (s.id === sectionId) {
-        return { ...s, items: s.items.filter((_, i) => i !== itemIndex) };
-      }
-      return s;
-    }));
+  const deleteItem = (sectionId: keyof SafetyPlanData, itemIndex: number) => {
+    const newItems = plan[sectionId].filter((_, i) => i !== itemIndex);
+    const updatedPlan = { ...plan, [sectionId]: newItems };
+    setPlan(updatedPlan);
+    savePlan(updatedPlan);
   };
 
-  const addItem = (sectionId: string) => {
+  const addItem = (sectionId: keyof SafetyPlanData) => {
     if (!newItemValue.trim()) return;
-    setSections(prev => prev.map(s => {
-      if (s.id === sectionId) {
-        return { ...s, items: [...s.items, newItemValue.trim()] };
-      }
-      return s;
-    }));
+    const newItems = [...plan[sectionId], newItemValue.trim()];
+    const updatedPlan = { ...plan, [sectionId]: newItems };
+    setPlan(updatedPlan);
     setNewItemValue("");
+    savePlan(updatedPlan);
   };
 
   const saveEdit = () => {
     if (!editingItem) return;
-    setSections(prev => prev.map(s => {
-      if (s.id === editingItem.sectionId) {
-        const newItems = [...s.items];
-        newItems[editingItem.index] = editingItem.value.trim();
-        return { ...s, items: newItems.filter(item => item.length > 0) };
-      }
-      return s;
-    }));
+    const sectionId = editingItem.sectionId;
+    const newItems = [...plan[sectionId]];
+    newItems[editingItem.index] = editingItem.value.trim();
+    const updatedPlan = { ...plan, [sectionId]: newItems.filter(item => item.length > 0) };
+    setPlan(updatedPlan);
     setEditingItem(null);
+    savePlan(updatedPlan);
   };
+
+  const sections = [
+    { id: 'warningSigns', title: "Warning Signs", icon: AlertTriangle, step: 1 },
+    { id: 'copingStrategies', title: "Internal Coping Strategies", icon: Wind, step: 2 },
+    { id: 'socialContacts', title: "Social Contacts (Distraction)", icon: Users, step: 3 },
+    { id: 'professionalSupport', title: "Professional Support", icon: PhoneCall, step: 4 },
+    { id: 'safeEnvironment', title: "Safe Environment", icon: ShieldCheck, step: 5 },
+  ] as const;
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="p-6 pb-0">
-        <button onClick={onBack} className="flex items-center text-sm font-medium mb-8 transition-opacity hover:opacity-80" style={{ color: theme.primary }}>
+        <button onClick={onBack} className="flex items-center text-sm font-bold mb-8 transition-opacity hover:opacity-80" style={{ color: colors.primary }}>
           <ChevronLeft className="mr-1 h-4 w-4" /> Back
         </button>
 
-        <Card className="border-0 shadow-sm rounded-3xl mb-8" style={{ backgroundColor: theme.softAccent }}>
-          <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Shield className="h-5 w-5" style={{ color: theme.accent }} />
-              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: theme.accent }}>Safety Plan</span>
+        <Card className="border-0 shadow-xl rounded-[24px] mb-8 overflow-hidden primary-gradient text-white">
+          <CardContent className="p-6 relative">
+            <div className="absolute top-0 right-0 p-6 opacity-10">
+              <Shield className="h-24 w-24" />
             </div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: theme.foreground }}>A calm plan for hard moments</h3>
-            <p className="text-sm leading-relaxed mb-4" style={{ color: "rgba(255,255,255,0.6)" }}>
-              Stored encrypted and shareable with your assigned MacKay Manor case manager. Update anytime.
+            <div className="mb-4 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <Shield className="h-5 w-5" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Safety Plan</span>
+            </div>
+            <h3 className="text-[22px] font-bold mb-2">A calm plan for hard moments</h3>
+            <p className="text-[13px] leading-relaxed opacity-70 mb-4 max-w-[80%]">
+              Stored encrypted and shareable with your assigned MacKay Manor case manager.
             </p>
-            <Button className="w-full h-12 rounded-2xl font-bold text-background" style={{ backgroundColor: theme.accent }}>Edit Full Plan</Button>
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest opacity-50">
+              <Check className="h-3 w-3" />
+              Trauma-Informed Support
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <ScrollArea className="flex-1 px-6">
         <div className="space-y-6 pb-24">
-          <div>
-            <SectionTitle title="Plan Sections" />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[14px] font-bold uppercase tracking-widest opacity-40">Plan Sections</h3>
+              {saving && <span className="text-[10px] font-bold text-primary animate-pulse uppercase tracking-widest">Saving...</span>}
+            </div>
             <div className="space-y-3">
-              {sections.map((section, index) => (
+              {sections.map((section) => (
                 <div key={section.id} className="space-y-2">
                   <Card 
                     onClick={() => toggleSection(section.id)} 
-                    className="border-0 shadow-sm rounded-3xl cursor-pointer transition-all hover:bg-white/10" 
-                    style={{ backgroundColor: theme.secondary }}
+                    className={cn(
+                      "border-0 shadow-sm rounded-[20px] cursor-pointer transition-all duration-300",
+                      expandedSection === section.id ? "ring-2 ring-primary/20" : "hover:bg-primary/5"
+                    )} 
+                    style={{ backgroundColor: colors.surfaceAlt }}
                   >
                     <CardContent className="flex items-center justify-between gap-3 p-4">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/5">
-                          <section.icon className="h-5 w-5" style={{ color: theme.primary }} />
+                        <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-background/50 shadow-sm">
+                          <section.icon className="h-6 w-6" style={{ color: colors.primary }} />
                         </div>
                         <div>
-                          <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: theme.muted }}>Step {index + 1}</div>
-                          <div className="text-sm font-bold" style={{ color: theme.foreground }}>{section.title}</div>
+                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40">Step {section.step}</div>
+                          <div className="text-[15px] font-bold" style={{ color: colors.text }}>{section.title}</div>
                         </div>
                       </div>
                       <motion.div
                         animate={{ rotate: expandedSection === section.id ? 90 : 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <ChevronRight className="h-5 w-5" style={{ color: theme.muted }} />
+                        <ChevronRight className="h-5 w-5 opacity-30" />
                       </motion.div>
                     </CardContent>
                   </Card>
@@ -144,31 +218,31 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden px-2"
+                        className="overflow-hidden px-1"
                       >
-                        <div className="space-y-2 py-2">
-                          {section.items.map((item, i) => (
+                        <div className="space-y-2 py-3">
+                          {plan[section.id].map((item, i) => (
                             <div key={i} className="flex items-center gap-2 group">
                               {editingItem?.sectionId === section.id && editingItem?.index === i ? (
                                 <div className="flex flex-1 items-center gap-2">
                                   <Input 
                                     value={editingItem.value}
                                     onChange={(e) => setEditingItem({ ...editingItem, value: e.target.value })}
-                                    className="h-9 bg-white/5 border-white/10 rounded-xl text-sm"
+                                    className="h-11 bg-surfaceAlt border-primary/20 rounded-[12px] text-[14px]"
                                     autoFocus
                                     onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
                                   />
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-emerald-400" onClick={saveEdit}>
-                                    <Check className="h-4 w-4" />
+                                  <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-success" onClick={saveEdit}>
+                                    <Check className="h-5 w-5" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-red-400" onClick={() => setEditingItem(null)}>
-                                    <X className="h-4 w-4" />
+                                  <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-danger" onClick={() => setEditingItem(null)}>
+                                    <X className="h-5 w-5" />
                                   </Button>
                                 </div>
                               ) : (
                                 <>
                                   <div 
-                                    className="flex-1 p-3 rounded-2xl bg-white/5 text-sm cursor-pointer hover:bg-white/10 transition-colors"
+                                    className="flex-1 p-4 rounded-[16px] bg-surfaceAlt text-[14px] font-medium cursor-pointer hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10"
                                     onClick={() => setEditingItem({ sectionId: section.id, index: i, value: item })}
                                   >
                                     {item}
@@ -176,7 +250,7 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
                                   <Button 
                                     size="icon" 
                                     variant="ghost" 
-                                    className="h-8 w-8 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10"
+                                    className="h-10 w-10 rounded-xl opacity-0 group-hover:opacity-100 text-danger hover:bg-danger/10 transition-all"
                                     onClick={() => deleteItem(section.id, i)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -191,15 +265,15 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
                               placeholder="Add new item..."
                               value={newItemValue}
                               onChange={(e) => setNewItemValue(e.target.value)}
-                              className="h-10 bg-white/5 border-dashed border-white/20 rounded-2xl text-sm"
+                              className="h-12 bg-transparent border-dashed border-border rounded-[16px] text-[14px]"
                               onKeyDown={(e) => e.key === 'Enter' && addItem(section.id)}
                             />
                             <Button 
                               size="icon" 
-                              className="h-10 w-10 rounded-2xl bg-primary text-background"
+                              className="h-12 w-12 rounded-[16px] primary-gradient border-0 text-white shadow-lg"
                               onClick={() => addItem(section.id)}
                             >
-                              <Plus className="h-5 w-5" />
+                              <Plus className="h-6 w-6" />
                             </Button>
                           </div>
                         </div>
@@ -211,35 +285,37 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
             </div>
           </div>
 
-          <div>
-            <SectionTitle title="Immediate Support" />
+          <div className="space-y-4">
+            <h3 className="text-[14px] font-bold uppercase tracking-widest opacity-40 px-1">Immediate Support</h3>
             <div className="grid gap-3">
-              <Card className="border-0 shadow-sm rounded-3xl" style={{ backgroundColor: theme.secondary }}>
+              <a href="tel:18669992727" className="block">
+                <Card className="border-0 shadow-sm rounded-[20px] hover:bg-primary/5 transition-colors cursor-pointer" style={{ backgroundColor: colors.surfaceAlt }}>
+                  <CardContent className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-[14px] p-3 bg-background/50 shadow-sm">
+                        <PhoneCall className="h-5 w-5" style={{ color: colors.primary }} />
+                      </div>
+                      <div>
+                        <div className="text-[15px] font-bold" style={{ color: colors.text }}>Call MacKay Manor 24hr</div>
+                        <div className="text-[11px] font-medium opacity-40">Immediate recovery support</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 opacity-30" />
+                  </CardContent>
+                </Card>
+              </a>
+              <Card className="border-0 shadow-sm rounded-[20px] hover:bg-primary/5 transition-colors cursor-pointer" style={{ backgroundColor: colors.surfaceAlt }}>
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
-                    <div className="rounded-2xl p-3 bg-white/5">
-                      <PhoneCall className="h-5 w-5" style={{ color: theme.primary }} />
+                    <div className="rounded-[14px] p-3 bg-background/50 shadow-sm">
+                      <MapPin className="h-5 w-5" style={{ color: colors.primary }} />
                     </div>
                     <div>
-                      <div className="text-sm font-bold" style={{ color: theme.foreground }}>Call Support Contact</div>
-                      <div className="text-[10px] font-medium" style={{ color: theme.muted }}>Fast access to someone you trust</div>
+                      <div className="text-[15px] font-bold" style={{ color: colors.text }}>Safe Places</div>
+                      <div className="text-[11px] font-medium opacity-40">Grounding spaces in Renfrew County</div>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5" style={{ color: theme.primary }} />
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-sm rounded-3xl" style={{ backgroundColor: theme.secondary }}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-2xl p-3 bg-white/5">
-                      <MapPin className="h-5 w-5" style={{ color: theme.primary }} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold" style={{ color: theme.foreground }}>Safe Places</div>
-                      <div className="text-[10px] font-medium" style={{ color: theme.muted }}>Grounding spaces you can go to</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5" style={{ color: theme.primary }} />
+                  <ChevronRight className="h-5 w-5 opacity-30" />
                 </CardContent>
               </Card>
             </div>
