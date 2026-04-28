@@ -115,6 +115,20 @@
       },
       "required": ["uid", "mood", "timestamp"]
     },
+    "Event": {
+      "title": "Event",
+      "description": "Community group activity or appointment.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "type": { "type": "string", "enum": ["group", "appointment", "workshop"] }
+      },
+      "required": ["title", "startTime", "endTime"]
+    },
     "WelfareCheck": {
       "title": "Welfare Check",
       "description": "Location snapshot for outreach staff.",
@@ -142,6 +156,10 @@
     "/safetyPlans/{userId}": {
       "schema": "SafetyPlan",
       "description": "User safety plans"
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Community events"
     },
     "/checkins/{checkinId}": {
       "schema": "DailyCheckIn",

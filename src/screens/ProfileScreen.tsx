@@ -125,9 +125,13 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
 
               {[
                 { label: "Notifications", icon: Bell },
-                { label: "Privacy & Security", icon: Lock },
+                { label: "Privacy & Security", icon: Lock, screen: 'privacy-and-security' },
               ].map(item => (
-                <div key={item.label} className="flex items-center justify-between p-5 rounded-[2rem] glass cursor-pointer hover:bg-white/10 transition-colors">
+                <div 
+                    key={item.label} 
+                    className="flex items-center justify-between p-5 rounded-[2rem] glass cursor-pointer hover:bg-white/10 transition-colors"
+                    onClick={() => item.screen && onNavigate(item.screen)}
+                >
                   <div className="flex items-center gap-4">
                     <div className="rounded-2xl p-3 bg-white/5">
                       <item.icon className="h-5 w-5 opacity-40" />
@@ -149,7 +153,7 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
           </Button>
 
           <div className="text-center space-y-2 pb-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-20">MindBridge v1.0.0</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-20">Pulse Hub v1.0.0</p>
             <p className="text-[10px] font-bold uppercase tracking-[0.1em] opacity-20">PHIPA Compliant · Renfrew County</p>
           </div>
         </div>

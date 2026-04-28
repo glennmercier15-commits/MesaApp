@@ -11,7 +11,11 @@ service cloud.firestore {
     // Collection: safetyPlans
     // Fields: uid, warningSigns, copingStrategies, socialContacts, professionalSupport, safeEnvironment, updatedAt
     //
+    // Collection: stopSmokingLogs
+    // Fields: uid, intensity, nrtUsed, timestamp
+    //
     // Collection: checkins
+
     // Fields: uid, mood, craving, timestamp
     //
     // Collection: welfareChecks
@@ -42,18 +46,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
     function isAdmin() {
       return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
          (request.auth.token.email == "GlennMercier15@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function isStaff() {
       return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'outreach']);
     }
 
@@ -62,6 +76,15 @@ service cloud.firestore {
              data.uid is string &&
              data.email is string &&
              data.role in ['client', 'outreach', 'admin'];
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['text', 'senderId', 'senderName', 'channel', 'timestamp']) &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 1000 &&
+             data.senderId is string && data.senderId == request.auth.uid &&
+             data.senderName is string && data.senderName.size() > 0 && data.senderName.size() <= 50 &&
+             data.channel is string && data.channel.size() > 0 && data.channel.size() <= 50 &&
+             data.timestamp == request.time;
     }
 
     function isValidJournalEntry(data) {
@@ -96,14 +119,32 @@ service cloud.firestore {
     }
 
     function isValidSafetyPlan(data) {
-      return data.keys().hasAll(['uid', 'updatedAt']) &&
-             data.uid is string &&
+      return data.keys().hasAll(['uid', 'updatedAt', 'warningSigns', 'copingStrategies', 'socialContacts', 'professionalSupport', 'safeEnvironment']) &&
+             data.uid is string && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
              data.updatedAt is string &&
-             (!('warningSigns' in data) || data.warningSigns is list) &&
-             (!('copingStrategies' in data) || data.copingStrategies is list) &&
-             (!('socialContacts' in data) || data.socialContacts is list) &&
-             (!('professionalSupport' in data) || data.professionalSupport is list) &&
-             (!('safeEnvironment' in data) || data.safeEnvironment is list);
+             data.warningSigns is list && data.warningSigns.size() <= 50 &&
+             data.copingStrategies is list && data.copingStrategies.size() <= 50 &&
+             data.socialContacts is list && data.socialContacts.size() <= 50 &&
+             data.professionalSupport is list && data.professionalSupport.size() <= 50 &&
+             data.safeEnvironment is list && data.safeEnvironment.size() <= 50;
+    }
+
+    function isValidStopSmokingLog(data) {
+      return data.keys().hasAll(['uid', 'intensity', 'nrtUsed', 'timestamp']) &&
+             data.uid is string && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+             data.intensity is number && data.intensity >= 0 && data.intensity <= 10 &&
+             data.nrtUsed is bool &&
+             data.timestamp is string;
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['title', 'startTime', 'endTime']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.startTime is string &&
+             data.endTime is string &&
+             (!('description' in data) || data.description is string) &&
+             (!('location' in data) || data.location is string) &&
+             (!('type' in data) || data.type in ['group', 'appointment', 'workshop']);
     }
 
     // ===============================================================
@@ -118,7 +159,18 @@ service cloud.firestore {
 
     match /safetyPlans/{userId} {
       allow read: if isAuthenticated() && (isOwner(userId) || isStaff());
-      allow write: if isAuthenticated() && isOwner(userId) && isValidSafetyPlan(request.resource.data);
+      allow create: if isAuthenticated() && isOwner(userId) && isValidSafetyPlan(incoming());
+      allow update: if isAuthenticated() && isOwner(userId) && isValidSafetyPlan(incoming()) && incoming().uid == existing().uid;
+    }
+
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff() && isValidEvent(incoming());
+    }
+
+    match /stopSmokingLogs/{logId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isStaff());
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidStopSmokingLog(request.resource.data);
     }
 
     match /checkins/{checkinId} {
@@ -137,11 +189,14 @@ service cloud.firestore {
       allow update: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
+    match /compliance_logs/{logId} {
+      allow create: if isAuthenticated();
+    }
+
     match /messages/{messageId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
-                    request.resource.data.senderId == request.auth.uid &&
-                    request.resource.data.keys().hasAll(['text', 'senderId', 'senderName', 'channel', 'timestamp']);
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow update, delete: if false;
     }
 
     match /journals/{entryId} {

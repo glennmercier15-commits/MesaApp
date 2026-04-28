@@ -13,7 +13,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const slides = [
     {
-      title: "Welcome to MindBridge",
+      title: "Welcome to Pulse Hub",
       description: "A trauma-informed companion for your recovery journey in Renfrew County.",
       icon: Heart,
       color: theme.primary

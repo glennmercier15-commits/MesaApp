@@ -4,19 +4,50 @@ import { MapPin, Navigation, ShieldCheck, AlertTriangle, ChevronLeft } from "luc
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { theme } from "../theme";
+import { locationService } from "../services/locationService";
+import { useAuth } from "../context/AuthContext";
+import { addDoc, collection, serverTimestamp, db } from "../firebase";
 
 interface WelfareCheckScreenProps {
   onBack: () => void;
 }
 
 export function WelfareCheckScreen({ onBack }: WelfareCheckScreenProps) {
-  const [status, setStatus] = useState<'idle' | 'locating' | 'sent'>('idle');
+  const { user } = useAuth();
+  const [status, setStatus] = useState<'idle' | 'locating' | 'sent' | 'error'>('idle');
+  const [isPatrolMode, setIsPatrolMode] = useState(false);
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
+    if (!user) return;
     setStatus('locating');
-    setTimeout(() => {
+    
+    try {
+      const position = await locationService.getCurrentPosition() as any;
+      
+      await addDoc(collection(db, "welfareChecks"), {
+        uid: user.uid,
+        location: {
+          latitude: position.latitude,
+          longitude: position.longitude,
+        },
+        timestamp: serverTimestamp(),
+        type: 'snapshot'
+      });
+      
       setStatus('sent');
-    }, 2000);
+    } catch (error) {
+      console.error("Error sending location snapshot:", error);
+      setStatus('error');
+    }
+  };
+
+  const togglePatrolMode = () => {
+    if (isPatrolMode) {
+      locationService.stopBackgroundPatrol();
+    } else {
+      locationService.startBackgroundPatrol();
+    }
+    setIsPatrolMode(!isPatrolMode);
   };
 
   return (
@@ -28,13 +59,13 @@ export function WelfareCheckScreen({ onBack }: WelfareCheckScreenProps) {
       <div className="space-y-2 mb-8">
         <h2 className="text-2xl font-bold" style={{ color: theme.foreground }}>Welfare Check</h2>
         <p className="text-sm leading-relaxed" style={{ color: theme.muted }}>
-          Submit a one-time GPS snapshot to your outreach team. This is used for safety sweeps in Renfrew County.
+          Submit a one-time GPS snapshot or enable Patrol Mode for active sweeps in Renfrew County.
         </p>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center">
         {status === 'idle' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-8">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-8 w-full">
             <div className="mx-auto h-32 w-32 rounded-full bg-white/5 flex items-center justify-center shadow-2xl">
               <MapPin className="h-12 w-12" style={{ color: theme.primary }} />
             </div>
@@ -44,7 +75,11 @@ export function WelfareCheckScreen({ onBack }: WelfareCheckScreenProps) {
                   <ShieldCheck className="h-5 w-5 mt-0.5" style={{ color: theme.primary }} />
                   <div>
                     <div className="text-sm font-bold" style={{ color: theme.foreground }}>PHIPA Compliant</div>
-                    <div className="text-xs" style={{ color: theme.muted }}>Only a single snapshot is sent. No continuous tracking.</div>
+                    <div className="text-xs" style={{ color: theme.muted }}>
+                      {isPatrolMode 
+                        ? "Patrol Mode ACTIVE: Background tracking 5min pings enabled."
+                        : "Only a single snapshot is sent. No continuous tracking."}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -55,6 +90,19 @@ export function WelfareCheckScreen({ onBack }: WelfareCheckScreenProps) {
               >
                 Send Location Snapshot
               </Button>
+              <Button 
+                onClick={togglePatrolMode}
+                variant="outline"
+                className={`w-full h-16 rounded-2xl text-lg font-bold border-2 ${isPatrolMode ? 'border-amber-500 text-amber-500' : 'border-white/10'}`}
+              >
+                {isPatrolMode ? 'Stop Patrol Mode' : 'Start Patrol Mode'}
+              </Button>
+              {isPatrolMode && (
+                <div className="flex items-center justify-center gap-2 text-amber-500 text-xs font-bold animate-pulse mt-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  PERSISTENT TRACKING ACTIVE
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -89,6 +137,24 @@ export function WelfareCheckScreen({ onBack }: WelfareCheckScreenProps) {
               className="w-full h-14 rounded-2xl border-white/10 bg-white/5 text-white/80 font-bold" 
             >
               Return to Home
+            </Button>
+          </motion.div>
+        )}
+        {status === 'error' && (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-8">
+            <div className="mx-auto h-32 w-32 rounded-full bg-red-500/10 flex items-center justify-center shadow-2xl">
+              <AlertTriangle className="h-16 w-16 text-red-500" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold text-red-500">Error Sending Location</h3>
+              <p className="text-sm" style={{ color: theme.muted }}>Please check your connection and try again.</p>
+            </div>
+            <Button 
+              onClick={() => setStatus('idle')}
+              variant="outline"
+              className="w-full h-14 rounded-2xl border-white/10 bg-white/5 text-white/80 font-bold" 
+            >
+              Try Again
             </Button>
           </motion.div>
         )}

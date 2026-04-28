@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,15 @@ import {
   Plus 
 } from "lucide-react";
 import { theme } from "../theme";
+import { PeerChatRoom } from "../components/PeerChatRoom";
+import { AnimatePresence } from "motion/react";
 
-const messages = [
+const conversations = [
   {
     id: 1,
-    name: "Jordan Lewis",
-    role: "Therapist",
-    snippet: "You handled yesterday with a lot of honesty. Let's build on that.",
+    name: "Peer Support Channel",
+    role: "Community",
+    snippet: "Welcome to the peer support channel.",
     time: "2m",
     unread: true,
   },
@@ -28,19 +30,27 @@ const messages = [
     time: "1h",
     unread: false,
   },
-  {
-    id: 3,
-    name: "Peer Circle",
-    role: "Community",
-    snippet: "Tonight's grounding group starts at 7:00 PM.",
-    time: "4h",
-    unread: false,
-  },
 ];
 
 export function MessagesScreen() {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeChannel, setActiveChannel] = useState("");
+
+  const handleOpenChat = (channelName: string) => {
+    setActiveChannel(channelName);
+    setIsChatOpen(true);
+  };
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col relative">
+      <AnimatePresence>
+        {isChatOpen && (
+          <PeerChatRoom 
+            channelName={activeChannel} 
+            onBack={() => setIsChatOpen(false)} 
+          />
+        )}
+      </AnimatePresence>
       <div className="p-4 pb-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
@@ -57,26 +67,31 @@ export function MessagesScreen() {
           </p>
         </div>
         <div className="space-y-3">
-          {messages.map((message) => (
-            <Card key={message.id} className="border-0 shadow-sm rounded-3xl" style={{ backgroundColor: theme.secondary }}>
+          {conversations.map((conv) => (
+            <Card 
+              key={conv.id} 
+              className="border-0 shadow-sm rounded-3xl cursor-pointer hover:bg-white/5 transition-colors" 
+              style={{ backgroundColor: theme.secondary }}
+              onClick={() => handleOpenChat(conv.name)}
+            >
               <CardContent className="flex items-start gap-3 p-4">
                 <Avatar className="rounded-2xl overflow-hidden">
                   <AvatarFallback className="rounded-2xl" style={{ backgroundColor: theme.soft, color: theme.primary }}>
-                    {message.name.split(' ').map((s) => s[0]).join('').slice(0, 2)}
+                    {conv.name.split(' ').map((s) => s[0]).join('').slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <div>
-                      <div className="font-bold text-sm" style={{ color: theme.foreground }}>{message.name}</div>
-                      <div className="text-[10px] font-medium" style={{ color: theme.muted }}>{message.role}</div>
+                      <div className="font-bold text-sm" style={{ color: theme.foreground }}>{conv.name}</div>
+                      <div className="text-[10px] font-medium" style={{ color: theme.muted }}>{conv.role}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {message.unread ? <div className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary }} /> : null}
-                      <span className="text-[10px] font-medium" style={{ color: theme.muted }}>{message.time}</span>
+                      {conv.unread ? <div className="h-2 w-2 rounded-full" style={{ backgroundColor: theme.primary }} /> : null}
+                      <span className="text-[10px] font-medium" style={{ color: theme.muted }}>{conv.time}</span>
                     </div>
                   </div>
-                  <p className="truncate text-xs" style={{ color: theme.muted }}>{message.snippet}</p>
+                  <p className="truncate text-xs" style={{ color: theme.muted }}>{conv.snippet}</p>
                 </div>
               </CardContent>
             </Card>

@@ -1,5 +1,5 @@
-import React from "react";
-import { motion } from "motion/react";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Bell } from "lucide-react";
 import { theme } from "./theme";
 import { CrisisFAB } from "./components/CrisisFAB";
@@ -9,19 +9,24 @@ import { AppThemeProvider, useAppTheme } from "./theme/AppTheme";
 import { LoginScreen } from "./screens/LoginScreen";
 import { NotificationProvider, useNotifications } from "./context/NotificationContext";
 import { NotificationCenter } from "./components/NotificationCenter";
+import { SplashScreen } from "./components/SplashScreen";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 function AppContent() {
   const { user, loading } = useAuth();
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+  if (loading || showSplash) {
+    if (loading) {
+      return (
+        <div className="flex h-full items-center justify-center bg-background">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      );
+    }
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
 
   if (!user) {
@@ -31,7 +36,7 @@ function AppContent() {
   return (
     <div className="flex h-full flex-col relative bg-background">
       <div className="flex items-center justify-between px-6 py-4 bg-background z-20">
-        <span className="text-lg font-bold text-foreground">MindBridge</span>
+        <span className="text-lg font-bold text-foreground">Pulse Hub</span>
         <NotificationBell onClick={() => setIsNotificationsOpen(true)} />
       </div>
       <div className="flex-1 overflow-hidden relative">

@@ -85,7 +85,7 @@ export function WellnessPassportScreen({ onBack, onNavigate }: WellnessPassportS
               <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
                 <Shield className="h-5 w-5" />
               </div>
-              <span className="font-bold tracking-tight">MindBridge</span>
+              <span className="font-bold tracking-tight">Pulse Hub</span>
             </div>
             <div className="text-[10px] font-bold uppercase tracking-widest opacity-60">Wellness Passport</div>
           </div>

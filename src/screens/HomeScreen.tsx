@@ -116,7 +116,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
                     <Shield className="h-5 w-5" />
                   </div>
-                  <span className="font-bold tracking-tight text-[15px]">MindBridge</span>
+                  <span className="font-bold tracking-tight text-[15px]">Pulse Hub</span>
                 </div>
                 <div className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-60 text-right leading-tight max-w-[100px]">
                   Wellness Passport

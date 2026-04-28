@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { theme } from "../theme";
 import { useAuth } from "../context/AuthContext";
-import { addDoc, collection, serverTimestamp, db } from "../firebase";
+import { addDoc, collection, serverTimestamp, db, query, where, getCountFromServer } from "../firebase";
 
 interface MoodCheckInProps {
   onComplete: (mood: string, intensity: number) => void;
@@ -19,6 +19,14 @@ export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
   const [checkInDone, setCheckInDone] = useState(false);
   const [urgeIntensity, setUrgeIntensity] = useState(3);
   const [isSaving, setIsSaving] = useState(false);
+  const [cumulativeCount, setCumulativeCount] = useState<number | null>(null);
+
+  const fetchCumulativeCount = async () => {
+    if (!user) return;
+    const q = query(collection(db, "checkins"), where("uid", "==", user.uid));
+    const snapshot = await getCountFromServer(q);
+    setCumulativeCount(snapshot.data().count);
+  };
 
   const handleMoodSelect = (mood: string) => {
     setMoodSelected(mood);
@@ -36,6 +44,7 @@ export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
         intensity: urgeIntensity,
         timestamp: serverTimestamp(),
       });
+      await fetchCumulativeCount();
       setCheckInDone(true);
       onComplete(moodSelected!, urgeIntensity);
     } catch (error) {
@@ -58,7 +67,7 @@ export function MoodCheckIn({ onComplete }: MoodCheckInProps) {
             </div>
             <h2 className="text-2xl font-bold mb-3" style={{ color: theme.foreground }}>You showed up for yourself</h2>
             <p className="text-sm leading-relaxed mb-8 opacity-70" style={{ color: theme.foreground }}>
-              Every check-in is a step forward. Thank you for sharing how you're feeling today.
+              Every check-in is a step forward. {cumulativeCount !== null && `You've checked in ${cumulativeCount} time${cumulativeCount === 1 ? '' : 's'} — that's ${cumulativeCount} day${cumulativeCount === 1 ? '' : 's'} you showed up for yourself.`}
             </p>
             <Button 
               variant="ghost" 

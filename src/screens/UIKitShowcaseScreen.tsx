@@ -25,7 +25,7 @@ function DemoContent() {
       header={
         <div className="flex items-center justify-between p-6"> 
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: colors.textMuted }}>MindBridge UI Kit</p>
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: colors.textMuted }}>Pulse Hub UI Kit</p>
             <h1 className="text-3xl font-black mt-1" style={{ color: colors.text }}>Retro glass system</h1>
           </div>
           <ThemeToggle />

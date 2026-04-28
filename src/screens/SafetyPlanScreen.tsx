@@ -16,7 +16,8 @@ import {
   Trash2,
   Check,
   X,
-  Loader2
+  Loader2,
+  Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,25 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<{ sectionId: keyof SafetyPlanData, index: number, value: string } | null>(null);
   const [newItemValue, setNewItemValue] = useState("");
+  const [showConfirmShare, setShowConfirmShare] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  const sharePlan = async () => {
+    if (!user) return;
+    setSharing(true);
+    try {
+      const planRef = doc(db, 'safetyPlans', user.uid);
+      await setDoc(planRef, {
+        sharedWithCaseManager: true,
+        sharedAt: new Date().toISOString()
+      }, { merge: true });
+      setShowConfirmShare(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `safetyPlans/${user.uid}`);
+    } finally {
+      setSharing(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -167,13 +187,49 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
             <p className="text-[13px] leading-relaxed opacity-70 mb-4 max-w-[80%]">
               Stored encrypted and shareable with your assigned MacKay Manor case manager.
             </p>
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest opacity-50">
+            <Button 
+                onClick={() => setShowConfirmShare(true)}
+                className="flex items-center gap-2 bg-white/20 text-white hover:bg-white/30 border-0 rounded-[12px] text-[13px] font-bold h-10 px-4"
+            >
+                <Share2 className="h-4 w-4" /> Share Plan
+            </Button>
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest opacity-50 mt-4">
               <Check className="h-3 w-3" />
               Trauma-Informed Support
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <AnimatePresence>
+        {showConfirmShare && (
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm"
+            >
+                <motion.div 
+                    initial={{ scale: 0.95 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0.95 }}
+                    className="bg-background rounded-[24px] p-6 w-full max-w-sm space-y-4 shadow-2xl border border-white/10"
+                >
+                    <h3 className="text-xl font-bold">Securely Share Plan</h3>
+                    <p className="text-sm opacity-70 leading-relaxed">
+                        This action will share your safety plan with your assigned MacKay Manor case manager. 
+                        It will be encrypted in transit and at rest.
+                    </p>
+                    <div className="flex gap-2 pt-2">
+                        <Button variant="ghost" className="flex-1 rounded-[16px]" onClick={() => setShowConfirmShare(false)}>Cancel</Button>
+                        <Button className="flex-1 rounded-[16px] primary-gradient text-white border-0" onClick={sharePlan} disabled={sharing}>
+                            {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm & Share'}
+                        </Button>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       <ScrollArea className="flex-1 px-6">
         <div className="space-y-6 pb-24">

@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import { db, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from "../firebase";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,15 +20,50 @@ interface StopSmokingScreenProps {
 }
 
 export function StopSmokingScreen({ onBack }: StopSmokingScreenProps) {
+  const { user } = useAuth();
   const [intensity, setIntensity] = useState(5);
   const [nrtUsed, setNrtUsed] = useState(false);
   const [isLogged, setIsLogged] = useState(false);
+  const [history, setHistory] = useState([]);
 
-  const handleLog = () => {
-    setIsLogged(true);
-    setTimeout(() => {
-      onBack();
-    }, 2000);
+  useEffect(() => {
+    if (!user) return;
+
+    const logsQuery = query(
+      collection(db, "stopSmokingLogs"),
+      where("uid", "==", user.uid),
+      orderBy("timestamp", "desc")
+    );
+
+    const unsubscribe = onSnapshot(logsQuery, (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setHistory(logs);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "stopSmokingLogs");
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleLog = async () => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, "stopSmokingLogs"), {
+        uid: user.uid,
+        intensity,
+        nrtUsed,
+        timestamp: serverTimestamp(),
+      });
+      setIsLogged(true);
+      setTimeout(() => {
+        onBack();
+      }, 2000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, "stopSmokingLogs");
+    }
   };
 
   return (
@@ -98,18 +136,17 @@ export function StopSmokingScreen({ onBack }: StopSmokingScreenProps) {
             <div className="space-y-3">
               <h3 className="text-[10px] font-bold uppercase tracking-widest px-1" style={{ color: theme.muted }}>Recent History</h3>
               <div className="space-y-2">
-                {[
-                  { date: "Today, 10:30 AM", intensity: 4, nrt: true },
-                  { date: "Yesterday, 8:15 PM", intensity: 7, nrt: false },
-                ].map((log, i) => (
+                {history.map((log: any, i) => (
                   <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-3">
                       <History className="h-4 w-4" style={{ color: theme.muted }} />
-                      <div className="text-xs font-medium" style={{ color: theme.foreground }}>{log.date}</div>
+                      <div className="text-xs font-medium" style={{ color: theme.foreground }}>
+                        {log.timestamp?.toDate().toLocaleString()}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold" style={{ color: theme.primary }}>LVL {log.intensity}</span>
-                      {log.nrt && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-emerald-500">NRT</span>}
+                      {log.nrtUsed && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-emerald-500">NRT</span>}
                     </div>
                   </div>
                 ))}

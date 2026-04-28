@@ -22,10 +22,13 @@ import { OnboardingScreen } from "../screens/OnboardingScreen";
 import { GroupSessionScreen } from "../screens/GroupSessionScreen";
 import { MeditationScreen } from "../screens/MeditationScreen";
 import { WellnessPassportScreen } from "../screens/WellnessPassportScreen";
+import { PrivacyAndSecurityScreen } from "../screens/PrivacyAndSecurityScreen";
+import { EventCalendarScreen } from "../screens/EventCalendarScreen";
 import { BreathworkTool } from "../components/tools/BreathworkTool";
 import { DBTTool } from "../components/tools/DBTTool";
 import { ThoughtRecordTool } from "../components/tools/ThoughtRecordTool";
 import { JournalTool } from "../components/tools/JournalTool";
+import { GroundingTool } from "../components/tools/GroundingTool";
 
 function BottomNav({ current, onChange }: { current: string; onChange: (tab: string) => void }) {
   const items = [
@@ -98,16 +101,19 @@ export function MainNavigator() {
   if (subScreen === 'group-session') return <GroupSessionScreen roomName={screenParams?.roomName || "Group Session"} onBack={() => setSubScreen(null)} />;
   if (subScreen === 'meditation') return <MeditationScreen onBack={() => setSubScreen(null)} />;
   if (subScreen === 'wellness-passport') return <WellnessPassportScreen onBack={() => setSubScreen(null)} onNavigate={navigate} />;
+  if (subScreen === 'event-calendar') return <EventCalendarScreen onBack={() => setSubScreen(null)} />;
+  if (subScreen === 'privacy-and-security') return <PrivacyAndSecurityScreen onBack={() => setSubScreen(null)} />;
   if (subScreen === 'breathwork') return <BreathworkTool onBack={() => setSubScreen(null)} />;
   if (subScreen === 'dbt') return <DBTTool onBack={() => setSubScreen(null)} />;
   if (subScreen === 'thought-record') return <ThoughtRecordTool onBack={() => setSubScreen(null)} />;
   if (subScreen === 'journal') return <JournalTool onBack={() => setSubScreen(null)} />;
+  if (subScreen === 'grounding') return <GroundingTool onBack={() => setSubScreen(null)} />;
 
   const screens = {
     home: <HomeScreen onNavigate={navigate} />,
     safety: <SafetyPlanScreen onBack={() => setTab('home')} />,
     tools: <ToolsScreen />,
-    sessions: <SessionsScreen />,
+    sessions: <SessionsScreen onNavigate={navigate} />,
     community: <CommunityScreen onNavigate={navigate} />,
     profile: <ProfileScreen onNavigate={navigate} />,
   };

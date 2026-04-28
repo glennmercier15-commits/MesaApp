@@ -23,6 +23,7 @@ import {
   serverTimestamp,
   limit 
 } from "../firebase";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
 interface Message {
   id: string;
@@ -77,7 +78,7 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
       })) as Message[];
       setMessages(msgs);
     }, (error) => {
-      console.error("Firestore Error:", error);
+      handleFirestoreError(error, OperationType.LIST, "messages");
     });
 
     return () => unsubscribe();
@@ -106,9 +107,7 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
         timestamp: serverTimestamp()
       });
     } catch (error) {
-      console.error("Error sending message:", error);
-      // Optionally restore input if send fails
-      setNewMessage(messageText);
+      handleFirestoreError(error, OperationType.CREATE, "messages");
     }
   };
 

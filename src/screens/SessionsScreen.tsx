@@ -18,7 +18,7 @@ import {
 import { useAppTheme } from "../theme/AppTheme";
 import { motion } from "motion/react";
 
-export function SessionsScreen() {
+export function SessionsScreen({ onNavigate }: { onNavigate: (screen: string) => void }) {
   const { colors } = useAppTheme();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'book' | 'history'>('upcoming');
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -174,6 +174,14 @@ export function SessionsScreen() {
                       </CardContent>
                     </Card>
                   ))}
+                  <Button 
+                    onClick={() => onNavigate('event-calendar')}
+                    variant="outline" 
+                    className="w-full h-12 rounded-2xl border-dashed border-primary/20 text-primary font-bold"
+                  >
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    View Community Events
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-6">
