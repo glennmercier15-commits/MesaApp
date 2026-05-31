@@ -10,7 +10,6 @@ import { LoginScreen } from "./screens/LoginScreen";
 import { NotificationProvider, useNotifications } from "./context/NotificationContext";
 import { NotificationCenter } from "./components/NotificationCenter";
 import { SplashScreen } from "./components/SplashScreen";
-import { BiometricVerification } from "./components/BiometricVerification";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -18,10 +17,6 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
   const [showSplash, setShowSplash] = useState(true);
-  const [appUnlocked, setAppUnlocked] = useState(false);
-
-  // App launch lock persistence configuration checks
-  const appLaunchLockEnabled = localStorage.getItem("biometric_app_launch") === "true";
 
   if (loading || showSplash) {
     if (loading) {
@@ -53,24 +48,6 @@ function AppContent() {
         isOpen={isNotificationsOpen} 
         onClose={() => setIsNotificationsOpen(false)} 
       />
-
-      <AnimatePresence>
-        {appLaunchLockEnabled && !appUnlocked && (
-          <motion.div
-            key="app-launch-biometric-lock"
-            initial={{ opacity: 1, y: 0 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: "100%", transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } }}
-            className="absolute inset-0 z-50 bg-background"
-          >
-            <BiometricVerification 
-              title="App Lock Connected"
-              subtitle="Verify your identity to launch MindBridge and access secure outreach records."
-              onVerifySuccess={() => setAppUnlocked(true)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

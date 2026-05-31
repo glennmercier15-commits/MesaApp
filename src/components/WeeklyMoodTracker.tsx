@@ -26,7 +26,12 @@ export function WeeklyMoodTracker() {
   const moodCount = Object.values(moods).filter(m => m !== null).length;
 
   return (
-    <div className="space-y-4">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="space-y-4"
+    >
       <div className="flex items-center justify-between px-1">
         <h3 className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme.text }}>Weekly Mood</h3>
         <span className="text-[10px] font-bold text-primary">APR 7 - APR 13</span>
@@ -128,6 +133,6 @@ export function WeeklyMoodTracker() {
           </AnimatePresence>
         </CardContent>
       </Card>
-    </div>
+    </motion.div>
   );
 }

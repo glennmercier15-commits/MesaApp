@@ -147,6 +147,14 @@ service cloud.firestore {
              (!('type' in data) || data.type in ['group', 'appointment', 'workshop']);
     }
 
+    function isValidGroupRoom(data) {
+      return data.keys().hasAll(['name', 'type', 'createdBy', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.type in ['Video', 'Audio'] &&
+             data.createdBy is string && data.createdBy == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -179,8 +187,15 @@ service cloud.firestore {
     }
 
     match /welfareChecks/{checkId} {
-      allow read: if isStaff();
-      allow create: if isStaff() && request.resource.data.uid == request.auth.uid;
+      allow read: if isStaff() || (isAuthenticated() && resource.data.uid == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+    }
+
+    match /groupRooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidGroupRoom(incoming());
+      allow update: if isAuthenticated() && (incoming().diff(existing()).affectedKeys().hasOnly(['participants']) || incoming().createdBy == request.auth.uid);
+      allow delete: if isAuthenticated() && existing().createdBy == request.auth.uid;
     }
 
     match /notifications/{notificationId} {

@@ -5,7 +5,8 @@ import {
   ChevronLeft, 
   ShieldCheck, 
   Info,
-  User as UserIcon
+  User as UserIcon,
+  Video
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ import {
   limit 
 } from "../firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
+import { PeerVideoCall } from "./PeerVideoCall";
 
 interface Message {
   id: string;
@@ -43,6 +45,7 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [anonymousName, setAnonymousName] = useState("");
+  const [isVideoCallActive, setIsVideoCallActive] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const user = auth.currentUser;
 
@@ -111,6 +114,22 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
     }
   };
 
+  const handleInitializeVideoCall = async () => {
+    if (!user) return;
+    setIsVideoCallActive(true);
+    try {
+      await addDoc(collection(db, "messages"), {
+        text: `[Anonymous Call] ${anonymousName} started a secure peer-support video session. Join to connect anonymously.`,
+        senderId: user.uid,
+        senderName: anonymousName,
+        channel: channelName,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.warn("Failed to post video invite:", error);
+    }
+  };
+
   const formatTime = (timestamp: any) => {
     if (!timestamp) return "";
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -139,8 +158,18 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-          <span className="text-[10px] font-bold text-primary">{anonymousName}</span>
+        <div className="flex items-center gap-2">
+          {/* Start Video Support Call Option */}
+          <button 
+            onClick={handleInitializeVideoCall}
+            title="Start secure anonymous video session"
+            className="h-10 w-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-primary hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+          >
+            <Video className="h-5 w-5" />
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+            <span className="text-[10px] font-bold text-primary">{anonymousName}</span>
+          </div>
         </div>
       </div>
 
@@ -173,15 +202,45 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
                     </span>
                   </div>
                 )}
-                <div 
-                  className={`max-w-[80%] px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
-                    msg.isMe 
-                      ? `bg-primary text-white ${isFirstInGroup ? "rounded-2xl rounded-tr-none" : "rounded-2xl"}` 
-                      : `bg-white/5 text-foreground border border-white/5 ${isFirstInGroup ? "rounded-2xl rounded-tl-none" : "rounded-2xl"}`
-                  }`}
-                >
-                  {msg.text}
-                </div>
+                {/* Special Video Invite Styling */}
+                {msg.text.includes("[Anonymous Call]") || msg.text.includes("[Support Video Call]") || msg.text.includes("[Video Support Call]") ? (
+                  <div className={`max-w-[85%] rounded-[1.5rem] p-4 border border-[#3D8B7A]/40 shadow-sm ${
+                    msg.isMe ? "bg-[#3D8B7A]/10 text-white" : "bg-white/5 text-foreground"
+                  }`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="relative">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 absolute -top-0.5 -right-0.5 animate-ping" />
+                        <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <Video className="h-4 w-4 text-primary" />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white tracking-wide">Secure Video Call</div>
+                        <div className="text-[9px] text-[#7B9E87] uppercase font-bold tracking-widest font-mono">PHIPA Shield Active</div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] leading-relaxed opacity-85 mb-3" style={{ color: theme.foreground }}>
+                      {msg.text.replace(/\[Support Video Call\]|\[Video Support Call\]|\[Anonymous Call\]/, "").trim()}
+                    </p>
+                    <Button 
+                      size="sm"
+                      onClick={() => setIsVideoCallActive(true)}
+                      className="w-full h-8 rounded-xl bg-primary hover:bg-primary/90 text-slate-950 font-bold text-[11px]"
+                    >
+                      Join Secure Video Call
+                    </Button>
+                  </div>
+                ) : (
+                  <div 
+                    className={`max-w-[80%] px-4 py-2 text-sm shadow-sm transition-all duration-300 ${
+                      msg.isMe 
+                        ? `bg-primary text-white ${isFirstInGroup ? "rounded-2xl rounded-tr-none" : "rounded-2xl"}` 
+                        : `bg-white/5 text-foreground border border-white/5 ${isFirstInGroup ? "rounded-2xl rounded-tl-none" : "rounded-2xl"}`
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                )}
                 {showTimestamp && (
                   <span className="mt-1 px-1 text-[9px] font-medium opacity-40" style={{ color: theme.muted }}>
                     {formatTime(msg.timestamp)}
@@ -214,6 +273,31 @@ export function PeerChatRoom({ channelName, onBack }: PeerChatRoomProps) {
           </Button>
         </div>
       </div>
+
+      {/* Inline Video Call Overlay Window */}
+      <AnimatePresence>
+        {isVideoCallActive && (
+          <PeerVideoCall 
+            roomName="Peer Support Video Call" 
+            anonymousName={anonymousName} 
+            onClose={() => setIsVideoCallActive(false)} 
+            onSendMessage={async (inputText) => {
+              if (!user) return;
+              try {
+                await addDoc(collection(db, "messages"), {
+                  text: inputText,
+                  senderId: user.uid,
+                  senderName: anonymousName,
+                  channel: channelName,
+                  timestamp: serverTimestamp()
+                });
+              } catch (error) {
+                console.warn("Failed to forward video chat message to Firestore:", error);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

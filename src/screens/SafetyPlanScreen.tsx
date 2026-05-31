@@ -27,7 +27,6 @@ import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 import { useAppTheme } from "../theme/AppTheme";
 import { cn } from "../lib/utils";
 import { Accordion } from "../components/Accordion";
-import { BiometricVerification } from "../components/BiometricVerification";
 
 interface SafetyPlanScreenProps {
   onBack: () => void;
@@ -53,11 +52,6 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const [loading, setLoading] = useState(true);
-  
-  // Sensitive area security check states
-  const [isSecureVerified, setIsSecureVerified] = useState(false);
-  const sensitiveLockEnabled = localStorage.getItem("biometric_sensitive_areas") === "true";
-
   const [saving, setSaving] = useState(false);
   const [plan, setPlan] = useState<SafetyPlanData>(DEFAULT_PLAN);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -202,14 +196,16 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
     { id: 'safeEnvironment', title: "Safe Environment", icon: ShieldCheck, step: 5 },
   ] as const;
 
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="relative h-full bg-background overflow-hidden">
-      {loading ? (
-        <div className="flex h-full items-center justify-center bg-background">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-background">
       <div className="p-6 pb-0">
         <button onClick={onBack} className="flex items-center text-sm font-bold mb-8 transition-opacity hover:opacity-80" style={{ color: colors.primary }}>
           <ChevronLeft className="mr-1 h-4 w-4" /> Back
@@ -408,27 +404,6 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
           </div>
         </div>
       </ScrollArea>
-        </div>
-      )}
-
-      {/* Verification Overlay */}
-      <AnimatePresence>
-        {sensitiveLockEnabled && !isSecureVerified && (
-          <motion.div
-            key="safety-plan-verification-overlay"
-            initial={{ opacity: 1, y: 0 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: "100%", transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } }}
-            className="absolute inset-0 z-50 bg-background"
-          >
-            <BiometricVerification 
-              sensitiveArea="Safety Plan"
-              onVerifySuccess={() => setIsSecureVerified(true)}
-              onCancel={onBack}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

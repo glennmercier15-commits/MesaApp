@@ -160,6 +160,20 @@
         "notes": { "type": "string" }
       },
       "required": ["uid", "location", "timestamp"]
+    },
+    "VirtualGroupRoom": {
+      "title": "Virtual Group Room",
+      "description": "Active online video/audio peer-support circle.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "time": { "type": "string" },
+        "participants": { "type": "number" },
+        "type": { "type": "string", "enum": ["Video", "Audio"] },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "createdBy", "createdAt"]
     }
   },
   "firestore": {
@@ -206,6 +220,10 @@
     "/cbtRecords/{recordId}": {
       "schema": "CBTRecord",
       "description": "CBT thought records"
+    },
+    "/groupRooms/{roomId}": {
+      "schema": "VirtualGroupRoom",
+      "description": "Peer support virtual group rooms"
     }
   }
 }
