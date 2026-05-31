@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+import { cn } from "../lib/utils";
 import { 
   Menu,
   Bell,
@@ -165,10 +165,37 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   <div className="space-y-4">
                     <div className="flex justify-between items-end">
                       <p className="text-[15px] font-medium" style={{ color: colors.text }}>How's your mood?</p>
-                      <span className="text-2xl">{getMoodEmoji(mood)}</span>
+                      <span className="text-2xl flex items-center gap-2">
+                        <span className="text-sm font-bold opacity-60" style={{ color: colors.text }}>{mood}/10</span>
+                        <span>{getMoodEmoji(mood)}</span>
+                      </span>
                     </div>
-                    <Slider value={[mood]} onValueChange={(v) => v?.[0] !== undefined && setMood(v[0])} max={10} min={1} step={1} className="py-2" />
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider opacity-30" style={{ color: colors.text }}>
+                    <div className="flex justify-between gap-1 w-full overflow-x-auto py-1 no-scrollbar">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                        const isSelected = mood === num;
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setMood(num)}
+                            className={cn(
+                              "h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 border shrink-0",
+                              isSelected 
+                                ? "text-white scale-110 shadow-md ring-2 ring-primary/20" 
+                                : "hover:bg-primary/5 active:scale-95"
+                            )}
+                            style={{
+                              backgroundColor: isSelected ? colors.primary : `${colors.surfaceAlt}80`,
+                              borderColor: isSelected ? colors.primary : `${colors.text}15`,
+                              color: isSelected ? "#fff" : colors.text,
+                            }}
+                          >
+                            {num}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider opacity-35" style={{ color: colors.text }}>
                       <span>Heavy</span>
                       <span>Light</span>
                     </div>
@@ -176,14 +203,41 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
                   {/* Craving Section */}
                   <div className="space-y-4">
-                    <div className="flex justify-between items-end">
+                    <div className="flex justify-between items-end gap-2 flex-wrap">
                       <p className="text-[15px] font-medium" style={{ color: colors.text }}>Any cravings today?</p>
-                      <span className="text-xs font-bold px-2 py-1 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
-                        {getCravingLevel(craving)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
+                          {getCravingLevel(craving)}
+                        </span>
+                        <span className="text-sm font-bold opacity-60" style={{ color: colors.text }}>({craving}/10)</span>
+                      </div>
                     </div>
-                    <Slider value={[craving]} onValueChange={(v) => v?.[0] !== undefined && setCraving(v[0])} max={10} min={0} step={1} className="py-2" />
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider opacity-30" style={{ color: colors.text }}>
+                    <div className="flex justify-between gap-1 w-full overflow-x-auto py-1 no-scrollbar">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                        const isSelected = craving === num;
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setCraving(num)}
+                            className={cn(
+                              "h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 border shrink-0",
+                              isSelected 
+                                ? "text-white scale-110 shadow-md ring-2 ring-primary/20" 
+                                : "hover:bg-primary/5 active:scale-95"
+                            )}
+                            style={{
+                              backgroundColor: isSelected ? colors.primary : `${colors.surfaceAlt}80`,
+                              borderColor: isSelected ? colors.primary : `${colors.text}15`,
+                              color: isSelected ? "#fff" : colors.text,
+                            }}
+                          >
+                            {num}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider opacity-35" style={{ color: colors.text }}>
                       <span>Peaceful</span>
                       <span>Distressed</span>
                     </div>

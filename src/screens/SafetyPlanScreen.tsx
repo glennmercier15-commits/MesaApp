@@ -26,6 +26,8 @@ import { db, doc, setDoc, onSnapshot } from "../firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 import { useAppTheme } from "../theme/AppTheme";
 import { cn } from "../lib/utils";
+import { Accordion } from "../components/Accordion";
+import { BiometricVerification } from "../components/BiometricVerification";
 
 interface SafetyPlanScreenProps {
   onBack: () => void;
@@ -51,6 +53,11 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const [loading, setLoading] = useState(true);
+  
+  // Sensitive area security check states
+  const [isSecureVerified, setIsSecureVerified] = useState(false);
+  const sensitiveLockEnabled = localStorage.getItem("biometric_sensitive_areas") === "true";
+
   const [saving, setSaving] = useState(false);
   const [plan, setPlan] = useState<SafetyPlanData>(DEFAULT_PLAN);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -58,6 +65,24 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
   const [newItemValue, setNewItemValue] = useState("");
   const [showConfirmShare, setShowConfirmShare] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [validationError, setValidationError] = useState<{ sectionId: string; message: string } | null>(null);
+  const [editValidationError, setEditValidationError] = useState<string | null>(null);
+
+  const handleNewItemChange = (val: string) => {
+    setNewItemValue(val);
+    if (validationError) {
+      setValidationError(null);
+    }
+  };
+
+  const handleEditChange = (val: string) => {
+    if (editingItem) {
+      setEditingItem({ ...editingItem, value: val });
+    }
+    if (editValidationError) {
+      setEditValidationError(null);
+    }
+  };
 
   const sharePlan = async () => {
     if (!user) return;
@@ -65,6 +90,9 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
     try {
       const planRef = doc(db, 'safetyPlans', user.uid);
       await setDoc(planRef, {
+        ...plan,
+        uid: user.uid,
+        updatedAt: new Date().toISOString(),
         sharedWithCaseManager: true,
         sharedAt: new Date().toISOString()
       }, { merge: true });
@@ -109,7 +137,7 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
         ...updatedPlan,
         uid: user.uid,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `safetyPlans/${user.uid}`);
     } finally {
@@ -120,17 +148,29 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
   const toggleSection = (id: string) => {
     setExpandedSection(expandedSection === id ? null : id);
     setEditingItem(null);
+    setNewItemValue("");
+    setValidationError(null);
+    setEditValidationError(null);
   };
 
   const deleteItem = (sectionId: keyof SafetyPlanData, itemIndex: number) => {
     const newItems = plan[sectionId].filter((_, i) => i !== itemIndex);
     const updatedPlan = { ...plan, [sectionId]: newItems };
     setPlan(updatedPlan);
+    setValidationError(null);
+    setEditValidationError(null);
     savePlan(updatedPlan);
   };
 
   const addItem = (sectionId: keyof SafetyPlanData) => {
-    if (!newItemValue.trim()) return;
+    if (!newItemValue.trim()) {
+      setValidationError({
+        sectionId,
+        message: "Please enter a value before adding."
+      });
+      return;
+    }
+    setValidationError(null);
     const newItems = [...plan[sectionId], newItemValue.trim()];
     const updatedPlan = { ...plan, [sectionId]: newItems };
     setPlan(updatedPlan);
@@ -140,10 +180,15 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
 
   const saveEdit = () => {
     if (!editingItem) return;
+    if (!editingItem.value.trim()) {
+      setEditValidationError("The item value cannot be empty.");
+      return;
+    }
+    setEditValidationError(null);
     const sectionId = editingItem.sectionId;
     const newItems = [...plan[sectionId]];
     newItems[editingItem.index] = editingItem.value.trim();
-    const updatedPlan = { ...plan, [sectionId]: newItems.filter(item => item.length > 0) };
+    const updatedPlan = { ...plan, [sectionId]: newItems };
     setPlan(updatedPlan);
     setEditingItem(null);
     savePlan(updatedPlan);
@@ -157,16 +202,14 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
     { id: 'safeEnvironment', title: "Safe Environment", icon: ShieldCheck, step: 5 },
   ] as const;
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="relative h-full bg-background overflow-hidden">
+      {loading ? (
+        <div className="flex h-full items-center justify-center bg-background">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="flex h-full flex-col bg-background">
       <div className="p-6 pb-0">
         <button onClick={onBack} className="flex items-center text-sm font-bold mb-8 transition-opacity hover:opacity-80" style={{ color: colors.primary }}>
           <ChevronLeft className="mr-1 h-4 w-4" /> Back
@@ -240,103 +283,90 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
             </div>
             <div className="space-y-3">
               {sections.map((section) => (
-                <div key={section.id} className="space-y-2">
-                  <Card 
-                    onClick={() => toggleSection(section.id)} 
-                    className={cn(
-                      "border-0 shadow-sm rounded-[20px] cursor-pointer transition-all duration-300",
-                      expandedSection === section.id ? "ring-2 ring-primary/20" : "hover:bg-primary/5"
-                    )} 
-                    style={{ backgroundColor: colors.surfaceAlt }}
-                  >
-                    <CardContent className="flex items-center justify-between gap-3 p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-background/50 shadow-sm">
-                          <section.icon className="h-6 w-6" style={{ color: colors.primary }} />
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40">Step {section.step}</div>
-                          <div className="text-[15px] font-bold" style={{ color: colors.text }}>{section.title}</div>
-                        </div>
-                      </div>
-                      <motion.div
-                        animate={{ rotate: expandedSection === section.id ? 90 : 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <ChevronRight className="h-5 w-5 opacity-30" />
-                      </motion.div>
-                    </CardContent>
-                  </Card>
-
-                  <AnimatePresence>
-                    {expandedSection === section.id && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden px-1"
-                      >
-                        <div className="space-y-2 py-3">
-                          {plan[section.id].map((item, i) => (
-                            <div key={i} className="flex items-center gap-2 group">
-                              {editingItem?.sectionId === section.id && editingItem?.index === i ? (
-                                <div className="flex flex-1 items-center gap-2">
-                                  <Input 
-                                    value={editingItem.value}
-                                    onChange={(e) => setEditingItem({ ...editingItem, value: e.target.value })}
-                                    className="h-11 bg-surfaceAlt border-primary/20 rounded-[12px] text-[14px]"
-                                    autoFocus
-                                    onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
-                                  />
-                                  <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-success" onClick={saveEdit}>
-                                    <Check className="h-5 w-5" />
-                                  </Button>
-                                  <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-danger" onClick={() => setEditingItem(null)}>
-                                    <X className="h-5 w-5" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <>
-                                  <div 
-                                    className="flex-1 p-4 rounded-[16px] bg-surfaceAlt text-[14px] font-medium cursor-pointer hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10"
-                                    onClick={() => setEditingItem({ sectionId: section.id, index: i, value: item })}
-                                  >
-                                    {item}
-                                  </div>
-                                  <Button 
-                                    size="icon" 
-                                    variant="ghost" 
-                                    className="h-10 w-10 rounded-xl opacity-0 group-hover:opacity-100 text-danger hover:bg-danger/10 transition-all"
-                                    onClick={() => deleteItem(section.id, i)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                          
-                          <div className="flex items-center gap-2 pt-2">
+                <Accordion
+                  key={section.id}
+                  title={section.title}
+                  icon={section.icon}
+                  step={section.step}
+                  isOpen={expandedSection === section.id}
+                  onToggle={() => toggleSection(section.id)}
+                >
+                  {plan[section.id].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 group">
+                      {editingItem?.sectionId === section.id && editingItem?.index === i ? (
+                        <div className="flex flex-1 flex-col gap-1.5 animate-fadeIn">
+                          <div className="flex items-center gap-2">
                             <Input 
-                              placeholder="Add new item..."
-                              value={newItemValue}
-                              onChange={(e) => setNewItemValue(e.target.value)}
-                              className="h-12 bg-transparent border-dashed border-border rounded-[16px] text-[14px]"
-                              onKeyDown={(e) => e.key === 'Enter' && addItem(section.id)}
+                              value={editingItem.value}
+                              onChange={(e) => handleEditChange(e.target.value)}
+                              className={cn(
+                                "h-11 bg-surfaceAlt rounded-[12px] text-[14px] w-full",
+                                editValidationError ? "border-danger ring-1 ring-danger" : "border-primary/20"
+                              )}
+                              autoFocus
+                              onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
                             />
-                            <Button 
-                              size="icon" 
-                              className="h-12 w-12 rounded-[16px] primary-gradient border-0 text-white shadow-lg"
-                              onClick={() => addItem(section.id)}
-                            >
-                              <Plus className="h-6 w-6" />
+                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-success hover:bg-success/10 shrink-0" onClick={saveEdit}>
+                              <Check className="h-5 w-5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-danger hover:bg-danger/10 shrink-0" onClick={() => { setEditingItem(null); setEditValidationError(null); }}>
+                              <X className="h-5 w-5" />
                             </Button>
                           </div>
+                          {editValidationError && (
+                            <span className="text-[12px] font-semibold text-danger px-1 animate-fadeIn">
+                              {editValidationError}
+                            </span>
+                          )}
                         </div>
-                      </motion.div>
+                      ) : (
+                        <>
+                          <div 
+                            className="flex-1 p-4 rounded-[16px] bg-surfaceAlt text-[14px] font-medium cursor-pointer hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10"
+                            onClick={() => setEditingItem({ sectionId: section.id, index: i, value: item })}
+                          >
+                            {item}
+                          </div>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-10 w-10 rounded-xl opacity-0 group-hover:opacity-100 text-danger hover:bg-danger/10 transition-all"
+                            onClick={() => deleteItem(section.id, i)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  
+                  <div className="flex flex-col gap-1.5 pt-2">
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        placeholder="Add new item..."
+                        value={newItemValue}
+                        onChange={(e) => handleNewItemChange(e.target.value)}
+                        className={cn(
+                          "h-12 bg-transparent border-dashed rounded-[16px] text-[14px] w-full",
+                          validationError?.sectionId === section.id ? "border-danger ring-1 ring-danger" : "border-border"
+                        )}
+                        onKeyDown={(e) => e.key === 'Enter' && addItem(section.id)}
+                      />
+                      <Button 
+                        size="icon" 
+                        className="h-12 w-12 rounded-[16px] primary-gradient border-0 text-white shadow-lg shrink-0"
+                        onClick={() => addItem(section.id)}
+                      >
+                        <Plus className="h-6 w-6" />
+                      </Button>
+                    </div>
+                    {validationError?.sectionId === section.id && (
+                      <span className="text-[12px] font-semibold text-danger px-1 animate-fadeIn">
+                        {validationError.message}
+                      </span>
                     )}
-                  </AnimatePresence>
-                </div>
+                  </div>
+                </Accordion>
               ))}
             </div>
           </div>
@@ -378,6 +408,27 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
           </div>
         </div>
       </ScrollArea>
+        </div>
+      )}
+
+      {/* Verification Overlay */}
+      <AnimatePresence>
+        {sensitiveLockEnabled && !isSecureVerified && (
+          <motion.div
+            key="safety-plan-verification-overlay"
+            initial={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%", transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } }}
+            className="absolute inset-0 z-50 bg-background"
+          >
+            <BiometricVerification 
+              sensitiveArea="Safety Plan"
+              onVerifySuccess={() => setIsSecureVerified(true)}
+              onCancel={onBack}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

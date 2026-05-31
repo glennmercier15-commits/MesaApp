@@ -13,7 +13,8 @@ import {
   Lock,
   Moon,
   Sun,
-  Camera
+  Camera,
+  Palette
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useAppTheme } from "../theme/AppTheme";
@@ -27,7 +28,7 @@ interface ProfileScreenProps {
 
 export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
   const { user, logout, updateUserPhotoURL } = useAuth();
-  const { mode, toggleTheme } = useAppTheme();
+  const { mode, toggleTheme, themeName, setThemeName } = useAppTheme();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const initials = user?.displayName?.split(' ').map(n => n[0]).join('') || '??';
 
@@ -121,6 +122,25 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                   checked={mode === 'light'} 
                   onCheckedChange={toggleTheme}
                 />
+              </div>
+
+              <div className="p-5 rounded-[2rem] glass space-y-4">
+                 <div className="flex items-center gap-4 opacity-40">
+                    <Palette className="h-5 w-5" />
+                    <span className="text-sm font-bold uppercase tracking-widest">Color Theme</span>
+                 </div>
+                 <div className="flex gap-2">
+                    {['default', 'ocean', 'sunset'].map(t => (
+                      <Button 
+                        key={t}
+                        variant={themeName === t ? 'default' : 'outline'}
+                        onClick={() => setThemeName(t)}
+                        className="capitalize text-xs rounded-xl"
+                      >
+                        {t}
+                      </Button>
+                    ))}
+                 </div>
               </div>
 
               {[

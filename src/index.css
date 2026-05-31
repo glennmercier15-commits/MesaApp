@@ -127,22 +127,22 @@
 
   .dark .atmosphere {
     background: 
-      radial-gradient(circle at 50% 0%, rgba(0, 212, 232, 0.1) 0%, transparent 70%),
-      radial-gradient(circle at 0% 100%, rgba(0, 188, 212, 0.05) 0%, transparent 70%);
+      radial-gradient(circle at 50% 0%, var(--primary-glow) 0%, transparent 70%),
+      radial-gradient(circle at 0% 100%, var(--primary-glow-secondary) 0%, transparent 70%);
   }
 
   .light .atmosphere {
     background: 
-      radial-gradient(circle at 50% 0%, rgba(0, 188, 212, 0.1) 0%, transparent 70%),
-      radial-gradient(circle at 0% 100%, rgba(0, 131, 143, 0.05) 0%, transparent 70%);
+      radial-gradient(circle at 50% 0%, var(--primary-glow) 0%, transparent 70%),
+      radial-gradient(circle at 0% 100%, var(--primary-glow-secondary) 0%, transparent 70%);
   }
 
   .teal-glow {
-    box-shadow: 0 6px 20px rgba(0, 188, 212, 0.35);
+    box-shadow: 0 6px 20px var(--primary-shadow);
   }
 
   .primary-gradient {
-    background: linear-gradient(135deg, #00BCD4, #00838F);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   }
 
   .text-balance {

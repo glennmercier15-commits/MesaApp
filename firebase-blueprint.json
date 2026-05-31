@@ -1,5 +1,19 @@
 {
   "entities": {
+    "Notification": {
+      "title": "Notification",
+      "description": "System or user-triggered notification.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "type": { "type": "string", "enum": ["session", "message", "milestone", "system"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["uid", "title", "body", "type", "timestamp", "read"]
+    },
     "ChatMessage": {
       "title": "Chat Message",
       "description": "Anonymous message in a peer support channel.",
@@ -168,6 +182,10 @@
     "/welfareChecks/{checkId}": {
       "schema": "WelfareCheck",
       "description": "Staff welfare check snapshots"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
     },
     "/messages/{messageId}": {
       "schema": "ChatMessage",

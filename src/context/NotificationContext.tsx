@@ -27,10 +27,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     typeof window !== 'undefined' ? Notification.permission : 'default'
   );
 
+  const [lastNotificationId, setLastNotificationId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!auth.currentUser) return;
 
-    // Listen for in-app notifications from Firestore
     const q = query(
       collection(db, 'notifications'),
       where('uid', '==', auth.currentUser.uid),
@@ -48,16 +49,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // Trigger browser notification for the latest one if it's new and unread
       const latest = newNotifications[0];
-      if (latest && !latest.read && permission === 'granted') {
+      if (latest && !latest.read && permission === 'granted' && latest.id !== lastNotificationId) {
         new Notification(latest.title, {
           body: latest.body,
-          icon: '/favicon.ico', // Fallback icon
+          icon: '/favicon.ico', 
         });
+        setLastNotificationId(latest.id);
       }
     });
 
     return () => unsubscribe();
-  }, [permission]);
+  }, [permission, lastNotificationId]);
 
   const requestPermission = async () => {
     if (!('Notification' in window)) {
