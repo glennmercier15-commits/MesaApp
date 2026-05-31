@@ -8,9 +8,9 @@ export function CrisisFAB() {
   const { colors } = useAppTheme();
 
   const crisisLinks = [
-    { name: "Emergency Dispatch", number: "911", desc: "Immediate danger", danger: true },
-    { name: "MacKay Crisis Line", number: "613-432-4946", desc: "Local 24/7 support" },
-    { name: "Crisis Services Canada", number: "1-833-456-4566", desc: "National support" },
+    { name: "Emergency Dispatch", number: "911", desc: "For immediate, life-threatening danger", danger: true },
+    { name: "MacKay Crisis Line", number: "613-432-4946", desc: "Available 24/7 for local crisis support" },
+    { name: "Crisis Services Canada", number: "1-833-456-4566", desc: "Available 24/7 for national help" },
   ];
 
   return (
@@ -19,6 +19,8 @@ export function CrisisFAB() {
       dragMomentum={false}
       dragConstraints={{ left: -310, right: 10, top: -650, bottom: 20 }}
       className="absolute bottom-24 right-6 z-[100] flex flex-col items-end gap-3"
+      role="region"
+      aria-label="Crisis Services Access"
     >
       <AnimatePresence>
         {isOpen && (
@@ -36,6 +38,7 @@ export function CrisisFAB() {
                     ? "bg-red-600 border-red-500 text-white" 
                     : "bg-white border-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
                 }`}
+                aria-label={`Call ${link.name}: ${link.desc}`}
               >
                 <div className="text-right">
                   <p className="text-xs font-bold uppercase tracking-wider">{link.name}</p>
@@ -44,7 +47,7 @@ export function CrisisFAB() {
                 <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
                   link.danger ? "bg-white/20" : "bg-red-50 dark:bg-red-900/30 text-red-600"
                 }`}>
-                  <Phone className="h-5 w-5" />
+                  <Phone className="h-5 w-5" aria-hidden="true" />
                 </div>
               </motion.a>
             ))}
@@ -59,6 +62,9 @@ export function CrisisFAB() {
         whileDrag={{ cursor: "grabbing" }}
         className="h-14 w-14 rounded-full flex items-center justify-center shadow-2xl relative overflow-hidden"
         style={{ backgroundColor: "#8B3D3D" }}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+        aria-label="Open emergency crisis resources"
       >
         <AnimatePresence mode="wait">
           {isOpen ? (

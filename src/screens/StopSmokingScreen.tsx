@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { db, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from "../firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +13,7 @@ import {
   CheckCircle2 
 } from "lucide-react";
 import { theme } from "../theme";
+import { logSmokingEvent, subscribeSmokingLogs } from "../services/stopSmokingService";
 
 interface StopSmokingScreenProps {
   onBack: () => void;
@@ -24,26 +24,16 @@ export function StopSmokingScreen({ onBack }: StopSmokingScreenProps) {
   const [intensity, setIntensity] = useState(5);
   const [nrtUsed, setNrtUsed] = useState(false);
   const [isLogged, setIsLogged] = useState(false);
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
 
-    const logsQuery = query(
-      collection(db, "stopSmokingLogs"),
-      where("uid", "==", user.uid),
-      orderBy("timestamp", "desc")
+    const unsubscribe = subscribeSmokingLogs(
+        user.uid,
+        (logs) => setHistory(logs),
+        (error) => handleFirestoreError(error, OperationType.LIST, "stopSmokingLogs")
     );
-
-    const unsubscribe = onSnapshot(logsQuery, (snapshot) => {
-      const logs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setHistory(logs);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, "stopSmokingLogs");
-    });
 
     return () => unsubscribe();
   }, [user]);
@@ -51,12 +41,7 @@ export function StopSmokingScreen({ onBack }: StopSmokingScreenProps) {
   const handleLog = async () => {
     if (!user) return;
     try {
-      await addDoc(collection(db, "stopSmokingLogs"), {
-        uid: user.uid,
-        intensity,
-        nrtUsed,
-        timestamp: serverTimestamp(),
-      });
+      await logSmokingEvent(user.uid, intensity, nrtUsed);
       setIsLogged(true);
       setTimeout(() => {
         onBack();
