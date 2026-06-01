@@ -22,116 +22,69 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "../context/AuthContext";
-import { db, doc, setDoc, onSnapshot } from "../firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 import { useAppTheme } from "../theme/AppTheme";
 import { cn } from "../lib/utils";
 import { Accordion } from "../components/Accordion";
+import { SafetyPlan } from "../types";
+import { subscribeSafetyPlan, saveSafetyPlan } from "../services/safetyPlanService";
 
-interface SafetyPlanScreenProps {
+interface SafetyPlanProps {
   onBack: () => void;
 }
 
-interface SafetyPlanData {
-  warningSigns: string[];
-  copingStrategies: string[];
-  socialContacts: string[];
-  professionalSupport: string[];
-  safeEnvironment: string[];
-}
+const SECTIONS = [
+  { id: 'warningSigns', title: "Warning Signs", icon: AlertTriangle, step: 1 },
+  { id: 'copingStrategies', title: "Coping Strategies", icon: Wind, step: 2 },
+  { id: 'supportContacts', title: "Support Contacts", icon: Users, step: 3 },
+  { id: 'environmentSafety', title: "Safe Environment", icon: ShieldCheck, step: 4 },
+] as const;
 
-const DEFAULT_PLAN: SafetyPlanData = {
-  warningSigns: [],
-  copingStrategies: [],
-  socialContacts: [],
-  professionalSupport: [],
-  safeEnvironment: [],
-};
-
-export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
+export function SafetyPlanScreen({ onBack }: SafetyPlanProps) {
   const { user } = useAuth();
   const { colors } = useAppTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [plan, setPlan] = useState<SafetyPlanData>(DEFAULT_PLAN);
+  const [plan, setPlan] = useState<SafetyPlan | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<{ sectionId: keyof SafetyPlanData, index: number, value: string } | null>(null);
+  
+  // State for adding new items or editing existing ones.
+  // For simplicity, we'll keep editing state generic.
+  const [editingItem, setEditingItem] = useState<{ sectionId: string; index: number; value: any } | null>(null);
   const [newItemValue, setNewItemValue] = useState("");
   const [showConfirmShare, setShowConfirmShare] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [validationError, setValidationError] = useState<{ sectionId: string; message: string } | null>(null);
-  const [editValidationError, setEditValidationError] = useState<string | null>(null);
-
-  const handleNewItemChange = (val: string) => {
-    setNewItemValue(val);
-    if (validationError) {
-      setValidationError(null);
-    }
-  };
-
-  const handleEditChange = (val: string) => {
-    if (editingItem) {
-      setEditingItem({ ...editingItem, value: val });
-    }
-    if (editValidationError) {
-      setEditValidationError(null);
-    }
-  };
-
-  const sharePlan = async () => {
-    if (!user) return;
-    setSharing(true);
-    try {
-      const planRef = doc(db, 'safetyPlans', user.uid);
-      await setDoc(planRef, {
-        ...plan,
-        uid: user.uid,
-        updatedAt: new Date().toISOString(),
-        sharedWithCaseManager: true,
-        sharedAt: new Date().toISOString()
-      }, { merge: true });
-      setShowConfirmShare(false);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `safetyPlans/${user.uid}`);
-    } finally {
-      setSharing(false);
-    }
-  };
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
-    const planRef = doc(db, 'safetyPlans', user.uid);
-    
-    const unsubscribe = onSnapshot(planRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setPlan({
-          warningSigns: data.warningSigns || [],
-          copingStrategies: data.copingStrategies || [],
-          socialContacts: data.socialContacts || [],
-          professionalSupport: data.professionalSupport || [],
-          safeEnvironment: data.safeEnvironment || [],
-        });
+    const unsubscribe = subscribeSafetyPlan(
+      user.uid,
+      (plan) => {
+        setPlan(plan);
+        setLoading(false);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, `safetyPlans/${user.uid}`);
+        setLoading(false);
       }
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `safetyPlans/${user.uid}`);
-    });
+    );
 
     return () => unsubscribe();
   }, [user]);
 
-  const savePlan = async (updatedPlan: SafetyPlanData) => {
+  const saveCurrentPlan = async (updatedPlan: SafetyPlan) => {
     if (!user) return;
     setSaving(true);
     try {
-      const planRef = doc(db, 'safetyPlans', user.uid);
-      await setDoc(planRef, {
-        ...updatedPlan,
-        uid: user.uid,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await saveSafetyPlan(user.uid, {
+        warningSigns: updatedPlan.warningSigns,
+        copingStrategies: updatedPlan.copingStrategies,
+        supportContacts: updatedPlan.supportContacts,
+        environmentSafety: updatedPlan.environmentSafety,
+        sharedWithCaseManager: updatedPlan.sharedWithCaseManager,
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `safetyPlans/${user.uid}`);
     } finally {
@@ -144,57 +97,77 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
     setEditingItem(null);
     setNewItemValue("");
     setValidationError(null);
-    setEditValidationError(null);
   };
 
-  const deleteItem = (sectionId: keyof SafetyPlanData, itemIndex: number) => {
-    const newItems = plan[sectionId].filter((_, i) => i !== itemIndex);
-    const updatedPlan = { ...plan, [sectionId]: newItems };
-    setPlan(updatedPlan);
-    setValidationError(null);
-    setEditValidationError(null);
-    savePlan(updatedPlan);
-  };
-
-  const addItem = (sectionId: keyof SafetyPlanData) => {
-    if (!newItemValue.trim()) {
-      setValidationError({
-        sectionId,
-        message: "Please enter a value before adding."
+  const sharePlan = async () => {
+    if (!user || !plan) return;
+    setSharing(true);
+    try {
+      await saveSafetyPlan(user.uid, {
+        ...plan,
+        sharedWithCaseManager: true,
       });
-      return;
+      setShowConfirmShare(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `safetyPlans/${user.uid}`);
+    } finally {
+      setSharing(false);
     }
-    setValidationError(null);
-    const newItems = [...plan[sectionId], newItemValue.trim()];
-    const updatedPlan = { ...plan, [sectionId]: newItems };
+  };
+
+  const deleteItem = (sectionId: string, itemIndex: number) => {
+    if (!plan) return;
+    
+    let updatedPlan = { ...plan };
+    
+    if (sectionId === 'supportContacts') {
+        const newContacts = [...plan.supportContacts];
+        newContacts.splice(itemIndex, 1);
+        updatedPlan.supportContacts = newContacts;
+    } else if (sectionId === 'warningSigns') {
+        const newSigns = [...plan.warningSigns];
+        newSigns.splice(itemIndex, 1);
+        updatedPlan.warningSigns = newSigns;
+    } else if (sectionId === 'copingStrategies') {
+        const newStrategies = [...plan.copingStrategies];
+        newStrategies.splice(itemIndex, 1);
+        updatedPlan.copingStrategies = newStrategies;
+    }
+    
+    setPlan(updatedPlan);
+    saveCurrentPlan(updatedPlan);
+  };
+
+  const addItem = (sectionId: 'warningSigns' | 'copingStrategies' | 'supportContacts') => {
+    if (!newItemValue.trim() || !plan) return;
+    
+    let updatedPlan = { ...plan };
+
+    if (sectionId === 'supportContacts') {
+        // For simplicity, just adding a placeholder contact. 
+        // Need a more robust UI for adding full contacts later.
+        updatedPlan.supportContacts = [...plan.supportContacts, { name: newItemValue.trim(), relation: "Friend", phone: "000-000-0000" }];
+    } else if (sectionId === 'warningSigns') {
+        updatedPlan.warningSigns = [...plan.warningSigns, newItemValue.trim()];
+    } else if (sectionId === 'copingStrategies') {
+        updatedPlan.copingStrategies = [...plan.copingStrategies, newItemValue.trim()];
+    }
+    
     setPlan(updatedPlan);
     setNewItemValue("");
-    savePlan(updatedPlan);
+    saveCurrentPlan(updatedPlan);
   };
 
   const saveEdit = () => {
-    if (!editingItem) return;
-    if (!editingItem.value.trim()) {
-      setEditValidationError("The item value cannot be empty.");
-      return;
-    }
-    setEditValidationError(null);
+    if (!editingItem || !plan) return;
     const sectionId = editingItem.sectionId;
-    const newItems = [...plan[sectionId]];
-    newItems[editingItem.index] = editingItem.value.trim();
+    const newItems = [...(sectionId === 'supportContacts' ? plan.supportContacts : (plan as any)[sectionId])];
+    newItems[editingItem.index] = editingItem.value;
     const updatedPlan = { ...plan, [sectionId]: newItems };
     setPlan(updatedPlan);
     setEditingItem(null);
-    savePlan(updatedPlan);
+    saveCurrentPlan(updatedPlan);
   };
-
-  const sections = [
-    { id: 'warningSigns', title: "Warning Signs", icon: AlertTriangle, step: 1 },
-    { id: 'copingStrategies', title: "Internal Coping Strategies", icon: Wind, step: 2 },
-    { id: 'socialContacts', title: "Social Contacts (Distraction)", icon: Users, step: 3 },
-    { id: 'professionalSupport', title: "Professional Support", icon: PhoneCall, step: 4 },
-    { id: 'safeEnvironment', title: "Safe Environment", icon: ShieldCheck, step: 5 },
-  ] as const;
 
   if (loading) {
     return (
@@ -278,7 +251,7 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
               {saving && <span className="text-[10px] font-bold text-primary animate-pulse uppercase tracking-widest">Saving...</span>}
             </div>
             <div className="space-y-3">
-              {sections.map((section) => (
+              {SECTIONS.map((section) => (
                 <Accordion
                   key={section.id}
                   title={section.title}
@@ -287,81 +260,54 @@ export function SafetyPlanScreen({ onBack }: SafetyPlanScreenProps) {
                   isOpen={expandedSection === section.id}
                   onToggle={() => toggleSection(section.id)}
                 >
-                  {plan[section.id].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 group">
-                      {editingItem?.sectionId === section.id && editingItem?.index === i ? (
-                        <div className="flex flex-1 flex-col gap-1.5 animate-fadeIn">
-                          <div className="flex items-center gap-2">
-                            <Input 
-                              value={editingItem.value}
-                              onChange={(e) => handleEditChange(e.target.value)}
-                              className={cn(
-                                "h-11 bg-surfaceAlt rounded-[12px] text-[14px] w-full",
-                                editValidationError ? "border-danger ring-1 ring-danger" : "border-primary/20"
-                              )}
-                              autoFocus
-                              onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
-                            />
-                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-success hover:bg-success/10 shrink-0" onClick={saveEdit}>
-                              <Check className="h-5 w-5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-danger hover:bg-danger/10 shrink-0" onClick={() => { setEditingItem(null); setEditValidationError(null); }}>
-                              <X className="h-5 w-5" />
-                            </Button>
-                          </div>
-                          {editValidationError && (
-                            <span className="text-[12px] font-semibold text-danger px-1 animate-fadeIn">
-                              {editValidationError}
-                            </span>
-                          )}
+                  {expandedSection === section.id && plan && (
+                    <div className="space-y-3 pt-4 px-1 pb-4">
+                      {section.id === 'supportContacts' ? (
+                        plan.supportContacts.map((contact, i) => (
+                           <div key={i} className="flex items-center justify-between p-4 rounded-[16px] bg-surfaceAlt text-sm border border-transparent">
+                             <div>
+                               <p className="font-bold">{contact.name}</p>
+                               <p className="text-[12px] opacity-70">{contact.relation} • {contact.phone}</p>
+                             </div>
+                             <Button size="icon" variant="ghost" className="text-danger hover:bg-danger/10 rounded-xl" onClick={() => deleteItem(section.id, i)}>
+                               <Trash2 className="h-4 w-4" />
+                             </Button>
+                           </div>
+                        ))
+                      ) : section.id === 'environmentSafety' ? (
+                        <div className="p-1">
+                          <Input 
+                            value={plan.environmentSafety}
+                            onChange={(e) => setPlan({ ...plan, environmentSafety: e.target.value })}
+                            onBlur={() => saveCurrentPlan(plan)}
+                            className="bg-surfaceAlt border-0 rounded-[12px]"
+                            placeholder="Describe your safe environment..."
+                          />
                         </div>
                       ) : (
-                        <>
-                          <div 
-                            className="flex-1 p-4 rounded-[16px] bg-surfaceAlt text-[14px] font-medium cursor-pointer hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10"
-                            onClick={() => setEditingItem({ sectionId: section.id, index: i, value: item })}
-                          >
-                            {item}
+                        (plan as any)[section.id].map((item: string, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-4 rounded-[16px] bg-surfaceAlt text-[14px] font-medium border border-transparent">
+                            <p>{item}</p>
+                            <Button size="icon" variant="ghost" className="text-danger hover:bg-danger/10 rounded-xl" onClick={() => deleteItem(section.id, i)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-10 w-10 rounded-xl opacity-0 group-hover:opacity-100 text-danger hover:bg-danger/10 transition-all"
-                            onClick={() => deleteItem(section.id, i)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
+                        ))
+                      )}
+                      
+                      {section.id !== 'environmentSafety' && (
+                        <div className="pt-2">
+                          <Input 
+                            placeholder={`Add to ${section.title}...`}
+                            value={newItemValue}
+                            onChange={(e: any) => {setNewItemValue(e.target.value); setValidationError(null)}}
+                            onKeyDown={(e: any) => e.key === 'Enter' && addItem(section.id as any)}
+                            className="h-12 bg-transparent border-dashed border-border rounded-[16px]"
+                          />
+                        </div>
                       )}
                     </div>
-                  ))}
-                  
-                  <div className="flex flex-col gap-1.5 pt-2">
-                    <div className="flex items-center gap-2">
-                      <Input 
-                        placeholder="Add new item..."
-                        value={newItemValue}
-                        onChange={(e) => handleNewItemChange(e.target.value)}
-                        className={cn(
-                          "h-12 bg-transparent border-dashed rounded-[16px] text-[14px] w-full",
-                          validationError?.sectionId === section.id ? "border-danger ring-1 ring-danger" : "border-border"
-                        )}
-                        onKeyDown={(e) => e.key === 'Enter' && addItem(section.id)}
-                      />
-                      <Button 
-                        size="icon" 
-                        className="h-12 w-12 rounded-[16px] primary-gradient border-0 text-white shadow-lg shrink-0"
-                        onClick={() => addItem(section.id)}
-                      >
-                        <Plus className="h-6 w-6" />
-                      </Button>
-                    </div>
-                    {validationError?.sectionId === section.id && (
-                      <span className="text-[12px] font-semibold text-danger px-1 animate-fadeIn">
-                        {validationError.message}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </Accordion>
               ))}
             </div>

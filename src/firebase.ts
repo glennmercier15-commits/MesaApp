@@ -49,7 +49,19 @@ export async function ensureUserProfile(user: User) {
       displayName: user.displayName,
       role: 'client', // Default role
       createdAt: serverTimestamp(),
-      location: 'Renfrew County'
+      location: 'Renfrew County',
+      preferences: { notificationsEnabled: true }
     });
   }
+}
+
+export async function getUserDoc(uid: string) {
+  const userDocRef = doc(db, 'users', uid);
+  const userDoc = await getDoc(userDocRef);
+  return userDoc.exists() ? userDoc.data() : null;
+}
+
+export async function updateUserPreferences(uid: string, preferences: any) {
+  const userDocRef = doc(db, 'users', uid);
+  await updateDoc(userDocRef, { preferences });
 }

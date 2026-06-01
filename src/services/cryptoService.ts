@@ -5,8 +5,10 @@ export const cryptoService = {
     return `encrypted_${btoa(data)}`;
   },
   
-  decrypt: (encryptedData: string) => {
+  decrypt: (encryptedData: any) => {
     // Mock decryption
+    if (typeof encryptedData !== 'string') return '';
+    if (!encryptedData.startsWith('encrypted_')) return encryptedData;
     return atob(encryptedData.replace('encrypted_', ''));
   }
 };

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, onAuthStateChanged, User, signInWithPopup, googleProvider, signOut, ensureUserProfile, updateProfile } from '../firebase';
+import { auth, onAuthStateChanged, User, signInWithPopup, googleProvider, signOut, ensureUserProfile, updateProfile, getUserDoc, updateUserPreferences } from '../firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -8,27 +8,40 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUserDisplayName: (displayName: string) => Promise<void>;
   updateUserPhotoURL: (photoURL: string) => Promise<void>;
+  userDoc: any | null;
+  updatePreferences: (preferences: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userDoc, setUserDoc] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         await ensureUserProfile(user);
+        const doc = await getUserDoc(user.uid);
         setUser(user);
+        setUserDoc(doc);
       } else {
         setUser(null);
+        setUserDoc(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  const updatePreferences = async (preferences: any) => {
+    if (user) {
+        await updateUserPreferences(user.uid, preferences);
+        setUserDoc({ ...userDoc, preferences });
+    }
+  }
 
   const signIn = async () => {
     try {
@@ -61,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, logout, updateUserDisplayName, updateUserPhotoURL }}>
+    <AuthContext.Provider value={{ user, loading, signIn, logout, updateUserDisplayName, updateUserPhotoURL, userDoc, updatePreferences }}>
       {children}
     </AuthContext.Provider>
   );

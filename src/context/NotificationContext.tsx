@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, doc, onSnapshot, collection, query, where, orderBy, limit } from '../firebase';
 import { theme } from '../theme';
+import { useAuth } from './AuthContext';
 
 interface Notification {
   id: string;
@@ -22,6 +23,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const { user, userDoc } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof window !== 'undefined' ? Notification.permission : 'default'
@@ -30,11 +32,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [lastNotificationId, setLastNotificationId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user) return;
 
     const q = query(
       collection(db, 'notifications'),
-      where('uid', '==', auth.currentUser.uid),
+      where('uid', '==', user.uid),
       orderBy('timestamp', 'desc'),
       limit(20)
     );
@@ -47,9 +49,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       
       setNotifications(newNotifications);
 
-      // Trigger browser notification for the latest one if it's new and unread
       const latest = newNotifications[0];
-      if (latest && !latest.read && permission === 'granted' && latest.id !== lastNotificationId) {
+      const notificationsEnabled = userDoc?.preferences?.notificationsEnabled !== false; // Default to true
+
+      if (latest && !latest.read && permission === 'granted' && latest.id !== lastNotificationId && notificationsEnabled) {
         new Notification(latest.title, {
           body: latest.body,
           icon: '/favicon.ico', 
@@ -59,7 +62,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     });
 
     return () => unsubscribe();
-  }, [permission, lastNotificationId]);
+  }, [permission, lastNotificationId, user, userDoc]);
 
   const requestPermission = async () => {
     if (!('Notification' in window)) {

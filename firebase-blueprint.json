@@ -98,6 +98,12 @@
         "displayName": { "type": "string" },
         "role": { "type": "string", "enum": ["client", "outreach", "admin"] },
         "location": { "type": "string", "description": "Assigned county or region" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "notificationsEnabled": { "type": "boolean" }
+          }
+        },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]
@@ -110,12 +116,23 @@
         "uid": { "type": "string", "description": "Owner UID" },
         "warningSigns": { "type": "array", "items": { "type": "string" } },
         "copingStrategies": { "type": "array", "items": { "type": "string" } },
-        "socialContacts": { "type": "array", "items": { "type": "string" } },
-        "professionalSupport": { "type": "array", "items": { "type": "string" } },
-        "safeEnvironment": { "type": "array", "items": { "type": "string" } },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "supportContacts": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "relation": { "type": "string" },
+              "phone": { "type": "string" }
+            },
+            "required": ["name", "relation", "phone"]
+          } 
+        },
+        "environmentSafety": { "type": "string" },
+        "lastUpdated": { "type": "string", "format": "date-time" },
+        "sharedWithCaseManager": { "type": "boolean" }
       },
-      "required": ["uid", "updatedAt"]
+      "required": ["uid", "lastUpdated"]
     },
     "DailyCheckIn": {
       "title": "Daily Check-in",
