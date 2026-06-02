@@ -17,6 +17,7 @@ import {
 import { theme } from "../../theme";
 import { db, collection, addDoc } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
+import { CalmingAnimation } from "./CalmingAnimation";
 
 export function GroundingTool({ onBack }: { onBack: () => void }) {
   const { user } = useAuth();
@@ -133,6 +134,7 @@ export function GroundingTool({ onBack }: { onBack: () => void }) {
           className="flex-1 flex flex-col"
         >
           <div className="mb-8 space-y-3">
+            <CalmingAnimation />
             <div className="flex items-center gap-4">
               <div className="p-4 rounded-[2rem] shadow-inner" style={{ backgroundColor: theme.soft }}>
                 {steps[step].i}
